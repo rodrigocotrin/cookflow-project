@@ -114,3 +114,5 @@ SELECT * FROM receitas WHERE titulo LIKE '%Bolo de Cenoura%';
 
 SELECT * FROM receitas_ingredientes WHERE id_receita = (SELECT id_receita FROM receitas WHERE titulo LIKE '%Bolo de Cenoura%');
 -- Você deve ver todos os 7 ingredientes associados à sua nova receita.
+
+SELECT * FROM receitas WHERE id_receita = 3;

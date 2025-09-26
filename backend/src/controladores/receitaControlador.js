@@ -207,10 +207,35 @@ const atualizarReceita = async (requisicao, resposta) => {
     }
 };
 
+// --- NOVA FUNÇÃO PARA DELETAR UMA RECEITA ---
+const deletarReceita = async (requisicao, resposta) => {
+    const { id: id_usuario_logado } = requisicao.usuario;
+    const { id: id_receita_a_deletar } = requisicao.params;
+
+    try {
+        // 1. Verifica se a receita existe e se pertence ao usuário logado antes de deletar
+        const resultado = await db.query('DELETE FROM receitas WHERE id_receita = $1 AND id_usuario = $2 RETURNING *', [id_receita_a_deletar, id_usuario_logado]);
+
+        // 2. Se o 'rowCount' for 0, significa que nenhuma linha foi deletada
+        // Isso acontece se a receita não existe ou não pertence ao usuário.
+        if (resultado.rowCount === 0) {
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada ou não pertence ao usuário.' });
+        }
+
+        // 3. Retorna uma resposta de sucesso sem conteúdo no corpo.
+        return resposta.status(204).send();
+
+    } catch (erro) {
+        console.error('Erro ao deletar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
 module.exports = {
     cadastrarReceita,
     listarReceitas,
     detalharReceita,
-    atualizarReceita, 
+    atualizarReceita,
+    deletarReceita, 
 };
 

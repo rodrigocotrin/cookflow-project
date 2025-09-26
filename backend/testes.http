@@ -86,3 +86,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxN
         { "nome": "Farinha de Trigo", "quantidade": 350, "unidade_medida": "g" }
     ]
 }
+
+### Deletar uma receita existente (protegido)
+DELETE http://localhost:3001/api/receitas/3
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
