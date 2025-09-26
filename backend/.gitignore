@@ -1,0 +1,5 @@
+# Ignorar arquivos de ambiente
+.env
+
+# Ignorar pasta de dependências
+node_modules
