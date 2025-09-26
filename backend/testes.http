@@ -36,3 +36,27 @@ Content-Type: application/json
   "email": "teste1@email.com",
   "senha": "senhaErrada"
 }
+
+### Cadastrar uma nova receita (precisa de token)
+# @name criarReceita
+POST http://localhost:3001/api/receitas
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk0NjYxLCJleHAiOjE3NTg5MjM0NjF9.2wp9wWYZEP9BrTEba8U-L-OnFGPtYLJ5NcHgd5wsNzU
+
+{
+    "titulo": "Bolo de Cenoura com Cobertura de Chocolate",
+    "descricao": "O melhor bolo de cenoura que você já comeu, super fofinho e com uma cobertura cremosa.",
+    "id_categoria": 1,
+    "tempo_preparo_minutos": 60,
+    "dificuldade": "Fácil",
+    "instrucoes": "1. Bata os ovos, o açúcar e o óleo no liquidificador. 2. Adicione a cenoura e bata mais. 3. Despeje em uma tigela e misture a farinha e o fermento. 4. Asse em forno pré-aquecido a 180°C por 40 minutos.",
+    "ingredientes": [
+        { "nome": "Cenoura", "quantidade": 3, "unidade_medida": "unidade(s)" },
+        { "nome": "Ovo", "quantidade": 4, "unidade_medida": "unidade(s)" },
+        { "nome": "Óleo de Soja", "quantidade": 240, "unidade_medida": "ml" },
+        { "nome": "Açúcar", "quantidade": 360, "unidade_medida": "g" },
+        { "nome": "Farinha de Trigo", "quantidade": 360, "unidade_medida": "g" },
+        { "nome": "Fermento em Pó", "quantidade": 15, "unidade_medida": "g" },
+        { "nome": "Chocolate em Pó", "quantidade": 50, "unidade_medida": "g" }
+    ]
+}

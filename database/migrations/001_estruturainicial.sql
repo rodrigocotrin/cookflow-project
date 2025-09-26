@@ -108,3 +108,9 @@ INSERT INTO avaliacoes (id_usuario, id_receita, nota) VALUES (2, 1, 5);
 INSERT INTO comentarios (id_usuario, id_receita, conteudo) VALUES (2, 1, 'Fiz e ficou incrível! Recomendo muito.');
 
 select * from usuarios
+
+SELECT * FROM receitas WHERE titulo LIKE '%Bolo de Cenoura%';
+-- Você deve ver sua nova receita na tabela.
+
+SELECT * FROM receitas_ingredientes WHERE id_receita = (SELECT id_receita FROM receitas WHERE titulo LIKE '%Bolo de Cenoura%');
+-- Você deve ver todos os 7 ingredientes associados à sua nova receita.
