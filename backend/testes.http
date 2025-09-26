@@ -1,0 +1,19 @@
+### Cadastrar um novo usuário com sucesso
+POST http://localhost:3001/api/usuarios
+Content-Type: application/json
+
+{
+  "nome": "Usuário de Teste",
+  "email": "teste1@email.com",
+  "senha": "senha123"
+}
+
+### Tentar cadastrar o mesmo e-mail novamente (deve dar erro)
+POST http://localhost:3001/api/usuarios
+Content-Type: application/json
+
+{
+  "nome": "Outro Usuário",
+  "email": "teste1@email.com",
+  "senha": "outraSenha"
+}
