@@ -116,3 +116,27 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxN
 ### Listar as receitas que EU favoritei (protegido)
 GET http://localhost:3001/api/perfil/favoritos
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
+
+### -------------------------------------------
+### TESTES DE BUSCA E FILTRO (RF05)
+
+### Listar todas as receitas (sem filtro)
+GET http://localhost:3001/api/receitas
+
+### Buscar por título: "Bolo"
+GET http://localhost:3001/api/receitas?busca=Bolo
+
+### Buscar por ingrediente: "Frango"
+GET http://localhost:3001/api/receitas?busca=Frango
+
+### Filtrar por categoria (ID 1 = Sobremesa)
+GET http://localhost:3001/api/receitas?categoria=1
+
+### Filtrar por dificuldade: "Fácil"
+GET http://localhost:3001/api/receitas?dificuldade=Fácil
+
+### Combinar busca e filtro: buscar por "Bolo" na categoria "Sobremesa"
+GET http://localhost:3001/api/receitas?busca=Bolo&categoria=1
+
+### Buscar por algo que não existe (deve retornar lista vazia)
+GET http://localhost:3001/api/receitas?busca=Jiló

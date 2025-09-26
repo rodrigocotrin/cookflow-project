@@ -69,25 +69,59 @@ const cadastrarReceita = async (requisicao, resposta) => {
 };
 
 const listarReceitas = async (requisicao, resposta) => {
+    // Pega os parâmetros de consulta da URL
+    const { busca, categoria, dificuldade } = requisicao.query;
+
     try {
-        // Consulta que busca todas as receitas e junta com os nomes dos usuários e categorias
-        const query = `
+        let queryBase = `
             SELECT 
                 r.id_receita, 
                 r.titulo, 
                 r.descricao, 
                 r.dificuldade, 
-                r.tempo_preparo_minutos,
                 c.nome AS nome_categoria,
                 u.nome AS nome_usuario
             FROM receitas r
             JOIN usuarios u ON r.id_usuario = u.id_usuario
-            JOIN categorias c ON r.id_categoria = c.id_categoria;
+            JOIN categorias c ON r.id_categoria = c.id_categoria
         `;
 
-        const resultado = await db.query(query);
+        const condicoes = [];
+        const valores = [];
+        let contadorParam = 1;
 
-        // Retorna a lista de receitas encontradas
+        if (busca) {
+            // Busca por título da receita OU por nome de ingrediente
+            condicoes.push(`(r.titulo ILIKE $${contadorParam} OR r.id_receita IN (
+                SELECT ri.id_receita FROM receitas_ingredientes ri
+                JOIN ingredientes i ON ri.id_ingrediente = i.id_ingrediente
+                WHERE i.nome ILIKE $${contadorParam}
+            ))`);
+            valores.push(`%${busca}%`);
+            contadorParam++;
+        }
+
+        if (categoria) {
+            condicoes.push(`r.id_categoria = $${contadorParam}`);
+            valores.push(categoria);
+            contadorParam++;
+        }
+
+        if (dificuldade) {
+            condicoes.push(`r.dificuldade = $${contadorParam}`);
+            valores.push(dificuldade);
+            contadorParam++;
+        }
+
+        // Se houver condições, adiciona a cláusula WHERE
+        if (condicoes.length > 0) {
+            queryBase += ` WHERE ${condicoes.join(' AND ')}`;
+        }
+
+        queryBase += ';';
+
+        const resultado = await db.query(queryBase, valores);
+
         return resposta.status(200).json(resultado.rows);
 
     } catch (erro) {
