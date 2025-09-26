@@ -142,8 +142,75 @@ const detalharReceita = async (requisicao, resposta) => {
     }
 };
 
+// --- NOVA FUNÇÃO PARA ATUALIZAR UMA RECEITA ---
+const atualizarReceita = async (requisicao, resposta) => {
+    const { id: id_usuario_logado } = requisicao.usuario;
+    const { id: id_receita_a_editar } = requisicao.params;
+    const { titulo, descricao, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes } = requisicao.body;
+
+    // Validação de entrada
+    if (!titulo || !id_categoria || !tempo_preparo_minutos || !dificuldade || !instrucoes || !ingredientes || ingredientes.length === 0) {
+        return resposta.status(400).json({ mensagem: 'Todos os campos obrigatórios devem ser fornecidos.' });
+    }
+
+    const client = await db.pool.connect();
+
+    try {
+        await client.query('BEGIN');
+
+        // 1. Verifica se a receita existe e se pertence ao usuário logado
+        const receitaExistente = await client.query('SELECT * FROM receitas WHERE id_receita = $1 AND id_usuario = $2', [id_receita_a_editar, id_usuario_logado]);
+        if (receitaExistente.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada ou não pertence ao usuário.' });
+        }
+
+        // 2. Deleta os ingredientes antigos da receita na tabela de associação
+        await client.query('DELETE FROM receitas_ingredientes WHERE id_receita = $1', [id_receita_a_editar]);
+
+        // 3. Atualiza os dados principais na tabela 'receitas'
+        const updateQuery = `
+            UPDATE receitas 
+            SET titulo = $1, descricao = $2, id_categoria = $3, tempo_preparo_minutos = $4, dificuldade = $5, instrucoes = $6
+            WHERE id_receita = $7;
+        `;
+        await client.query(updateQuery, [titulo, descricao, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, id_receita_a_editar]);
+
+        // 4. Re-insere os ingredientes (lógica idêntica à de criação)
+        for (const ingrediente of ingredientes) {
+            let resultadoIngrediente = await client.query('SELECT id_ingrediente FROM ingredientes WHERE nome = $1', [ingrediente.nome]);
+            let id_ingrediente;
+
+            if (resultadoIngrediente.rows.length === 0) {
+                const novoIngredienteResult = await client.query('INSERT INTO ingredientes (nome) VALUES ($1) RETURNING id_ingrediente', [ingrediente.nome]);
+                id_ingrediente = novoIngredienteResult.rows[0].id_ingrediente;
+            } else {
+                id_ingrediente = resultadoIngrediente.rows[0].id_ingrediente;
+            }
+
+            const receitaIngredienteQuery = `
+                INSERT INTO receitas_ingredientes (id_receita, id_ingrediente, quantidade, unidade_medida)
+                VALUES ($1, $2, $3, $4);
+            `;
+            await client.query(receitaIngredienteQuery, [id_receita_a_editar, id_ingrediente, ingrediente.quantidade, ingrediente.unidade_medida]);
+        }
+
+        await client.query('COMMIT');
+        return resposta.status(200).json({ mensagem: 'Receita atualizada com sucesso!' });
+
+    } catch (erro) {
+        await client.query('ROLLBACK');
+        console.error('Erro ao atualizar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    } finally {
+        client.release();
+    }
+};
+
 module.exports = {
     cadastrarReceita,
     listarReceitas,
-    detalharReceita, 
+    detalharReceita,
+    atualizarReceita, 
 };
+

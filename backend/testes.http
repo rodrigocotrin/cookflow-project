@@ -66,3 +66,23 @@ GET http://localhost:3001/api/receitas
 
 ### Detalhar uma receita específica (público)
 GET http://localhost:3001/api/receitas/3
+
+### Atualizar uma receita existente (protegido)
+PUT http://localhost:3001/api/receitas/3
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
+
+{
+    "titulo": "Bolo de Cenoura FOFÍSSIMO (Editado)",
+    "descricao": "A melhor receita de bolo de cenoura do mundo, agora atualizada.",
+    "id_categoria": 1,
+    "tempo_preparo_minutos": 55,
+    "dificuldade": "Fácil",
+    "instrucoes": "Instruções atualizadas para o melhor bolo.",
+    "ingredientes": [
+        { "nome": "Cenoura", "quantidade": 2, "unidade_medida": "unidade(s) média(s)" },
+        { "nome": "Ovo", "quantidade": 3, "unidade_medida": "unidade(s)" },
+        { "nome": "Açúcar", "quantidade": 300, "unidade_medida": "g" },
+        { "nome": "Farinha de Trigo", "quantidade": 350, "unidade_medida": "g" }
+    ]
+}
