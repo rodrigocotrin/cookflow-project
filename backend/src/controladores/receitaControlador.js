@@ -68,6 +68,35 @@ const cadastrarReceita = async (requisicao, resposta) => {
     }
 };
 
+const listarReceitas = async (requisicao, resposta) => {
+    try {
+        // Consulta que busca todas as receitas e junta com os nomes dos usuários e categorias
+        const query = `
+            SELECT 
+                r.id_receita, 
+                r.titulo, 
+                r.descricao, 
+                r.dificuldade, 
+                r.tempo_preparo_minutos,
+                c.nome AS nome_categoria,
+                u.nome AS nome_usuario
+            FROM receitas r
+            JOIN usuarios u ON r.id_usuario = u.id_usuario
+            JOIN categorias c ON r.id_categoria = c.id_categoria;
+        `;
+
+        const resultado = await db.query(query);
+
+        // Retorna a lista de receitas encontradas
+        return resposta.status(200).json(resultado.rows);
+
+    } catch (erro) {
+        console.error('Erro ao listar receitas:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
 module.exports = {
     cadastrarReceita,
+    listarReceitas,
 }; 

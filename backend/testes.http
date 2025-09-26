@@ -60,3 +60,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxN
         { "nome": "Chocolate em Pó", "quantidade": 50, "unidade_medida": "g" }
     ]
 }
+
+### Listar todas as receitas (público)
+GET http://localhost:3001/api/receitas

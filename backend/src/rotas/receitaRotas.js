@@ -5,8 +5,12 @@ const verificarLogin = require('../intermediarios/autenticacao'); // Nosso "segu
 
 const rotas = express.Router();
 
+
+// Usamos o método GET para buscar/ler informações.
+rotas.get('/receitas', receitaControlador.listarReceitas);
+
 // Para criar uma receita, o usuário PRECISA estar logado.
-// Por isso, colocamos o middleware `verificarLogin` antes de chamar o controlador.
+// Rota protegida para criar uma nova receita
 rotas.post('/receitas', verificarLogin, receitaControlador.cadastrarReceita);
 
 module.exports = rotas;
