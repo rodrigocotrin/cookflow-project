@@ -108,3 +108,11 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxN
 ### 4. Tentar desfavoritar de novo (deve dar erro 404)
 DELETE http://localhost:3001/api/receitas/4/favoritar
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
+
+### Listar as receitas que EU criei (protegido)
+GET http://localhost:3001/api/perfil/minhas-receitas
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
+
+### Listar as receitas que EU favoritei (protegido)
+GET http://localhost:3001/api/perfil/favoritos
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
