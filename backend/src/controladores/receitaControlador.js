@@ -96,7 +96,54 @@ const listarReceitas = async (requisicao, resposta) => {
     }
 };
 
+const detalharReceita = async (requisicao, resposta) => {
+    // O :id na URL é acessado via 'requisicao.params'
+    const { id } = requisicao.params;
+
+    try {
+        // 1. Consulta principal para buscar os detalhes da receita
+        const receitaQuery = `
+            SELECT 
+                r.id_receita, r.titulo, r.descricao, r.instrucoes, r.dificuldade, 
+                r.tempo_preparo_minutos, c.nome AS nome_categoria, u.nome AS nome_usuario
+            FROM receitas r
+            JOIN usuarios u ON r.id_usuario = u.id_usuario
+            JOIN categorias c ON r.id_categoria = c.id_categoria
+            WHERE r.id_receita = $1;
+        `;
+        const resultadoReceita = await db.query(receitaQuery, [id]);
+
+        // Se a receita não for encontrada, retorna erro 404
+        if (resultadoReceita.rows.length === 0) {
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada.' });
+        }
+
+        const receita = resultadoReceita.rows[0];
+
+        // 2. Consulta para buscar os ingredientes daquela receita
+        const ingredientesQuery = `
+            SELECT 
+                i.nome, ri.quantidade, ri.unidade_medida
+            FROM receitas_ingredientes ri
+            JOIN ingredientes i ON ri.id_ingrediente = i.id_ingrediente
+            WHERE ri.id_receita = $1;
+        `;
+        const resultadoIngredientes = await db.query(ingredientesQuery, [id]);
+
+        // 3. Adiciona a lista de ingredientes ao objeto da receita
+        receita.ingredientes = resultadoIngredientes.rows;
+
+        // 4. Retorna o objeto completo da receita
+        return resposta.status(200).json(receita);
+
+    } catch (erro) {
+        console.error('Erro ao detalhar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
 module.exports = {
     cadastrarReceita,
     listarReceitas,
-}; 
+    detalharReceita, 
+};

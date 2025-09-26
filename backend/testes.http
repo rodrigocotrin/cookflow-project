@@ -63,3 +63,6 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxN
 
 ### Listar todas as receitas (público)
 GET http://localhost:3001/api/receitas
+
+### Detalhar uma receita específica (público)
+GET http://localhost:3001/api/receitas/3
