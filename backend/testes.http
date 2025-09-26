@@ -140,3 +140,30 @@ GET http://localhost:3001/api/receitas?busca=Bolo&categoria=1
 
 ### Buscar por algo que não existe (deve retornar lista vazia)
 GET http://localhost:3001/api/receitas?busca=Jiló
+
+### 1. Avaliar uma receita com sucesso (protegido)
+POST http://localhost:3001/api/receitas/1/avaliar
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
+Content-Type: application/json
+
+{
+    "nota": 5
+}
+
+### 2. Tentar avaliar a mesma receita de novo (deve dar erro 409)
+POST http://localhost:3001/api/receitas/1/avaliar
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
+Content-Type: application/json
+
+{
+    "nota": 4
+}
+
+### 3. Tentar avaliar com uma nota inválida (deve dar erro 400)
+POST http://localhost:3001/api/receitas/2/avaliar
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4ODk1NzM1LCJleHAiOjE3NTg5MjQ1MzV9.KfDzhbH9bJbmafMspK0xG3NZGnXLHID6zPq38lyb1Qw
+Content-Type: application/json
+
+{
+    "nota": 6
+}

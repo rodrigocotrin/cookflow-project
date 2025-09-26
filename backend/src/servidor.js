@@ -1,7 +1,9 @@
+// Arquivo: src/servidor.js
 const express = require('express');
 const usuarioRotas = require('./rotas/usuarioRotas');
 const receitaRotas = require('./rotas/receitaRotas');
-const perfilRotas = require('./rotas/perfilRotas'); 
+const perfilRotas = require('./rotas/perfilRotas');
+const interacaoRotas = require('./rotas/interacaoRotas'); 
 
 const app = express();
 const porta = 3001;
@@ -10,7 +12,8 @@ app.use(express.json());
 
 app.use('/api', usuarioRotas);
 app.use('/api', receitaRotas);
-app.use('/api', perfilRotas); 
+app.use('/api', perfilRotas);
+app.use('/api', interacaoRotas); 
 
 // Rota de teste
 app.get('/', (requisicao, resposta) => {
