@@ -17,3 +17,22 @@ Content-Type: application/json
   "email": "teste1@email.com",
   "senha": "outraSenha"
 }
+
+### Fazer login com sucesso (use os dados que você cadastrou)
+POST http://localhost:3001/api/login
+Content-Type: application/json
+
+{
+  "email": "teste1@email.com",
+  "senha": "senha123"
+}
+
+
+### Tentar fazer login com a senha errada
+POST http://localhost:3001/api/login
+Content-Type: application/json
+
+{
+  "email": "teste1@email.com",
+  "senha": "senhaErrada"
+}

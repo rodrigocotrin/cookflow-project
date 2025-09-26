@@ -8,5 +8,6 @@ const rotas = express.Router();
 // Usamos o método POST, pois estamos criando um novo recurso.
 // O endereço será '/usuarios'
 rotas.post('/usuarios', usuarioControlador.cadastrarUsuario);
+rotas.post('/login', usuarioControlador.loginUsuario);
 
 module.exports = rotas;
