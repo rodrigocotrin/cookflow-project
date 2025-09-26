@@ -231,11 +231,66 @@ const deletarReceita = async (requisicao, resposta) => {
     }
 };
 
+
+// --- NOVA FUNÇÃO PARA FAVORITAR UMA RECEITA ---
+const favoritarReceita = async (requisicao, resposta) => {
+    const { id: id_usuario } = requisicao.usuario;
+    const { id: id_receita } = requisicao.params;
+
+    try {
+        // Verifica se a receita existe
+        const receita = await db.query('SELECT id_receita FROM receitas WHERE id_receita = $1', [id_receita]);
+        if (receita.rowCount === 0) {
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada.' });
+        }
+
+        // Verifica se a receita já não foi favoritada pelo usuário
+        const favoritoExistente = await db.query('SELECT * FROM favoritos WHERE id_usuario = $1 AND id_receita = $2', [id_usuario, id_receita]);
+        if (favoritoExistente.rowCount > 0) {
+            return resposta.status(409).json({ mensagem: 'Receita já favoritada por este usuário.' });
+        }
+
+        // Insere o registro na tabela de favoritos
+        await db.query('INSERT INTO favoritos (id_usuario, id_receita) VALUES ($1, $2)', [id_usuario, id_receita]);
+
+        return resposta.status(201).json({ mensagem: 'Receita favoritada com sucesso.' });
+
+    } catch (erro) {
+        console.error('Erro ao favoritar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
+// --- NOVA FUNÇÃO PARA DESFAVORITAR UMA RECEITA ---
+const desfavoritarReceita = async (requisicao, resposta) => {
+    const { id: id_usuario } = requisicao.usuario;
+    const { id: id_receita } = requisicao.params;
+
+    try {
+        // Tenta deletar o registro da tabela de favoritos
+        const resultado = await db.query('DELETE FROM favoritos WHERE id_usuario = $1 AND id_receita = $2', [id_usuario, id_receita]);
+
+        // Se rowCount for 0, o favorito não existia
+        if (resultado.rowCount === 0) {
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada na lista de favoritos.' });
+        }
+
+        return resposta.status(204).send(); // Sucesso, sem conteúdo
+
+    } catch (erro) {
+        console.error('Erro ao desfavoritar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
 module.exports = {
     cadastrarReceita,
     listarReceitas,
     detalharReceita,
     atualizarReceita,
-    deletarReceita, 
+    deletarReceita,
+    favoritarReceita,     
+    desfavoritarReceita,  
 };
+
 
