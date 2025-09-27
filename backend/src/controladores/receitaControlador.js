@@ -131,7 +131,6 @@ const listarReceitas = async (requisicao, resposta) => {
 };
 
 const detalharReceita = async (requisicao, resposta) => {
-    // O :id na URL é acessado via 'requisicao.params'
     const { id } = requisicao.params;
 
     try {
@@ -147,11 +146,9 @@ const detalharReceita = async (requisicao, resposta) => {
         `;
         const resultadoReceita = await db.query(receitaQuery, [id]);
 
-        // Se a receita não for encontrada, retorna erro 404
         if (resultadoReceita.rows.length === 0) {
             return resposta.status(404).json({ mensagem: 'Receita não encontrada.' });
         }
-
         const receita = resultadoReceita.rows[0];
 
         // 2. Consulta para buscar os ingredientes daquela receita
@@ -163,9 +160,23 @@ const detalharReceita = async (requisicao, resposta) => {
             WHERE ri.id_receita = $1;
         `;
         const resultadoIngredientes = await db.query(ingredientesQuery, [id]);
-
-        // 3. Adiciona a lista de ingredientes ao objeto da receita
         receita.ingredientes = resultadoIngredientes.rows;
+
+        // --- NOVA LÓGICA PARA CÁLCULO DA MÉDIA ---
+        // 3. Consulta para calcular a média e o total de avaliações
+        const avaliacaoQuery = `
+            SELECT 
+                COALESCE(AVG(nota), 0) AS media_avaliacoes, 
+                COUNT(nota) AS total_avaliacoes 
+            FROM avaliacoes 
+            WHERE id_receita = $1;
+        `;
+        const resultadoAvaliacao = await db.query(avaliacaoQuery, [id]);
+        
+        // Formata a média para ter apenas uma casa decimal
+        receita.media_avaliacoes = parseFloat(resultadoAvaliacao.rows[0].media_avaliacoes).toFixed(1);
+        receita.total_avaliacoes = parseInt(resultadoAvaliacao.rows[0].total_avaliacoes, 10);
+        // ------------------------------------------
 
         // 4. Retorna o objeto completo da receita
         return resposta.status(200).json(receita);

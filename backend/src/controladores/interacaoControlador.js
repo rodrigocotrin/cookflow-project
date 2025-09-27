@@ -6,9 +6,9 @@ const avaliarReceita = async (requisicao, resposta) => {
     const { id: id_receita } = requisicao.params;
     const { nota } = requisicao.body;
 
-    // Valida se a nota foi enviada e está entre 1 e 5
-    if (!nota || nota < 1 || nota > 5) {
-        return resposta.status(400).json({ mensagem: 'A nota é obrigatória e deve ser um número entre 1 e 5.' });
+    // Valida se a nota é um número válido entre 1 e 5
+    if (typeof nota !== 'number' || nota < 1 || nota > 5) { 
+        return resposta.status(400).json({ mensagem: 'A nota é obrigatória e deve ser um número entre 1 e 5 (ex: 3.5).' });
     }
 
     try {

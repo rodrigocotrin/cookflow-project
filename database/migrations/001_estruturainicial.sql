@@ -73,9 +73,9 @@ CREATE TABLE avaliacoes (
     id_avaliacao SERIAL PRIMARY KEY,
     id_usuario INT NOT NULL,
     id_receita INT NOT NULL,
-    nota INT NOT NULL CHECK (nota BETWEEN 1 AND 5),
+    nota DECIMAL(2, 1) NOT NULL CHECK (nota BETWEEN 1.0 AND 5.0), -- ALTERADO AQUI
     data_criacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (id_usuario, id_receita), -- Garante que um usuário só pode avaliar uma receita uma vez.
+    UNIQUE (id_usuario, id_receita),
     FOREIGN KEY (id_usuario) REFERENCES usuarios(id_usuario) ON DELETE CASCADE,
     FOREIGN KEY (id_receita) REFERENCES receitas(id_receita) ON DELETE CASCADE
 );
