@@ -167,3 +167,15 @@ Content-Type: application/json
 {
     "nota": 6
 }
+
+### 1. Adicionar um comentário (protegido)
+POST http://localhost:3001/api/receitas/3/comentar
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6MywiaWF0IjoxNzU4OTMwNzUyLCJleHAiOjE3NTg5NTk1NTJ9.Mt60JsP2_0i_K-BOxH7UnwlU6osDSFwVkUg_crxY490
+Content-Type: application/json
+
+{
+    "conteudo": "Fiz esta receita no final de semana e ficou incrível! Recomendo."
+}
+
+### 2. Listar os comentários da receita (público)
+GET http://localhost:3001/api/receitas/3/comentarios
