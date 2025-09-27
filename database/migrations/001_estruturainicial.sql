@@ -118,3 +118,5 @@ SELECT * FROM receitas_ingredientes WHERE id_receita = (SELECT id_receita FROM r
 SELECT * FROM receitas WHERE id_receita = 3;
 
 select * from favoritos
+
+INSERT INTO receitas_ingredientes (id_receita, id_ingrediente, quantidade, unidade_medida) VALUES (2, 3, 1, 'unidade(s)');
