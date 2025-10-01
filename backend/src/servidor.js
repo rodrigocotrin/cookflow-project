@@ -1,4 +1,5 @@
 const express = require('express');
+const cors = require('cors');
 const usuarioRotas = require('./rotas/usuarioRotas');
 const receitaRotas = require('./rotas/receitaRotas');
 const perfilRotas = require('./rotas/perfilRotas');
@@ -8,6 +9,7 @@ const listaComprasRotas = require('./rotas/listaComprasRotas');
 const app = express();
 const porta = 3001;
 
+app.use(cors());
 app.use(express.json());
 
 app.use('/api', usuarioRotas);

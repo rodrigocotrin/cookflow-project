@@ -188,3 +188,13 @@ Content-Type: application/json
 {
     "ids_receitas": [1, 2]
 }
+
+### (TESTE) PASSO 1: Cadastrar um usuário com uma senha conhecida
+POST http://localhost:3001/api/usuarios
+Content-Type: application/json
+
+{
+  "nome": "Usuário Tester",
+  "email": "tester@cookflow.com",
+  "senha": "senhafacil123" 
+}
