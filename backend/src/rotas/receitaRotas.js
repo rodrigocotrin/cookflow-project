@@ -5,18 +5,16 @@ const verificarLogin = require('../intermediarios/autenticacao');
 
 const rotas = express.Router();
 
-// ... (rotas existentes) ...
+// Rotas públicas
 rotas.get('/receitas', receitaControlador.listarReceitas);
 rotas.get('/receitas/:id', receitaControlador.detalharReceita);
+rotas.get('/ingredientes', receitaControlador.listarIngredientes); 
 
-// Rotas protegidas (precisam de token)
+// Rotas protegidas
 rotas.post('/receitas', verificarLogin, receitaControlador.cadastrarReceita);
 rotas.put('/receitas/:id', verificarLogin, receitaControlador.atualizarReceita);
 rotas.delete('/receitas/:id', verificarLogin, receitaControlador.deletarReceita);
-
-// --- NOVAS ROTAS PARA FAVORITOS ---
 rotas.post('/receitas/:id/favoritar', verificarLogin, receitaControlador.favoritarReceita);
 rotas.delete('/receitas/:id/favoritar', verificarLogin, receitaControlador.desfavoritarReceita);
-
 
 module.exports = rotas;

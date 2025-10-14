@@ -1,4 +1,4 @@
-// Arquivo: src/Router.jsx
+// Arquivo: src/Router.jsx (CÓDIGO COMPLETO)
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import MainLayout from './layouts/MainLayout';
@@ -7,7 +7,9 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ReceitaDetalhePage from './pages/ReceitaDetalhePage';
 import CriarReceitaPage from './pages/CriarReceitaPage';
-import PerfilPage from './pages/PerfilPage'; // NOVA IMPORTAÇÃO
+import PerfilPage from './pages/PerfilPage';
+import PlanejadorPage from './pages/PlanejadorPage';
+import EditarReceitaPage from './pages/EditarReceitaPage'; 
 import RotaProtegida from './componentes_uteis/RotaProtegida';
 
 const router = createBrowserRouter([
@@ -15,18 +17,18 @@ const router = createBrowserRouter([
     path: '/',
     element: <MainLayout />,
     children: [
-      // Rotas Públicas
       { index: true, element: <HomePage /> },
       { path: 'login', element: <LoginPage /> },
       { path: 'cadastro', element: <RegisterPage /> },
       { path: 'receita/:id', element: <ReceitaDetalhePage /> },
-      // Estrutura para Rotas Protegidas
       {
         path: '/',
         element: <RotaProtegida />,
         children: [
           { path: 'criar-receita', element: <CriarReceitaPage /> },
-          { path: 'perfil', element: <PerfilPage /> }, // NOVA ROTA
+          { path: 'editar-receita/:id', element: <EditarReceitaPage /> }, 
+          { path: 'perfil', element: <PerfilPage /> },
+          { path: 'planejador', element: <PlanejadorPage /> },
         ],
       },
     ],

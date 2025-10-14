@@ -9,13 +9,16 @@ const gerarListaDeCompras = async (requisicao, resposta) => {
     }
 
     try {
+        // A query agora também busca o título da receita de origem
         const query = `
             SELECT 
                 i.nome, 
                 ri.quantidade, 
-                ri.unidade_medida
+                ri.unidade_medida,
+                r.titulo AS receita_origem
             FROM receitas_ingredientes ri
             JOIN ingredientes i ON ri.id_ingrediente = i.id_ingrediente
+            JOIN receitas r ON ri.id_receita = r.id_receita
             WHERE ri.id_receita = ANY($1::int[]);
         `;
         const resultado = await db.query(query, [ids_receitas]);
@@ -24,22 +27,24 @@ const gerarListaDeCompras = async (requisicao, resposta) => {
         const listaConsolidada = new Map();
 
         for (const ingrediente of todosIngredientes) {
+            const quantidadeNumerica = parseFloat(ingrediente.quantidade);
             const chave = `${ingrediente.nome}_${ingrediente.unidade_medida}`;
 
-            // --- CORREÇÃO AQUI ---
-            // Converte a quantidade (que vem como texto) para um número de ponto flutuante
-            const quantidadeNumerica = parseFloat(ingrediente.quantidade);
+            const fonte = {
+                receita: ingrediente.receita_origem,
+                quantidade: quantidadeNumerica,
+            };
 
             if (listaConsolidada.has(chave)) {
                 const itemExistente = listaConsolidada.get(chave);
-                // Agora estamos somando NÚMEROS, e não textos
-                itemExistente.quantidade += quantidadeNumerica;
+                itemExistente.quantidade_total += quantidadeNumerica;
+                itemExistente.fontes.push(fonte);
             } else {
                 listaConsolidada.set(chave, {
                     nome: ingrediente.nome,
-                    // Armazena a quantidade já como número
-                    quantidade: quantidadeNumerica,
                     unidade_medida: ingrediente.unidade_medida,
+                    quantidade_total: quantidadeNumerica,
+                    fontes: [fonte],
                 });
             }
         }

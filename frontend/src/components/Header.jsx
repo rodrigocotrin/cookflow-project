@@ -27,6 +27,9 @@ export default function Header() {
           {assinado ? (
             <>
               <li>
+                <Link to="/planejador" className="hover:text-green-300 font-medium">Planejador</Link>
+              </li>
+              <li>
                 <Link to="/criar-receita" className="hover:text-green-300 font-medium">Criar Receita</Link>
               </li>
               <li>
