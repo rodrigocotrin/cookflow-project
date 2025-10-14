@@ -7,6 +7,7 @@ import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
 import ReceitaDetalhePage from './pages/ReceitaDetalhePage';
 import CriarReceitaPage from './pages/CriarReceitaPage';
+import PerfilPage from './pages/PerfilPage'; // NOVA IMPORTAÇÃO
 import RotaProtegida from './componentes_uteis/RotaProtegida';
 
 const router = createBrowserRouter([
@@ -15,31 +16,17 @@ const router = createBrowserRouter([
     element: <MainLayout />,
     children: [
       // Rotas Públicas
-      {
-        index: true,
-        element: <HomePage />,
-      },
-      {
-        path: 'login',
-        element: <LoginPage />,
-      },
-      {
-        path: 'cadastro',
-        element: <RegisterPage />,
-      },
-      {
-        path: 'receita/:id',
-        element: <ReceitaDetalhePage />,
-      },
+      { index: true, element: <HomePage /> },
+      { path: 'login', element: <LoginPage /> },
+      { path: 'cadastro', element: <RegisterPage /> },
+      { path: 'receita/:id', element: <ReceitaDetalhePage /> },
       // Estrutura para Rotas Protegidas
       {
         path: '/',
         element: <RotaProtegida />,
         children: [
-          {
-            path: 'criar-receita',
-            element: <CriarReceitaPage />,
-          },
+          { path: 'criar-receita', element: <CriarReceitaPage /> },
+          { path: 'perfil', element: <PerfilPage /> }, // NOVA ROTA
         ],
       },
     ],

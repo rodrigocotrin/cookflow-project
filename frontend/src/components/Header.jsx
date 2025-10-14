@@ -29,6 +29,9 @@ export default function Header() {
               <li>
                 <Link to="/criar-receita" className="hover:text-green-300 font-medium">Criar Receita</Link>
               </li>
+              <li>
+                <Link to="/perfil" className="hover:text-green-300 font-medium">Meu Perfil</Link> 
+              </li>
               <li className="font-medium text-gray-300">
                 Olá, {utilizador.nome.split(' ')[0]}!
               </li>
