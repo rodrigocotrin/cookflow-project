@@ -1,15 +1,13 @@
-// src/context/AuthContexto.jsx (VERSÃO COMPLETA E CORRIGIDA)
+// Arquivo: src/context/AuthContexto.jsx
 import { createContext, useState, useEffect } from 'react';
-import api from '../services/api'; // Certifique-se de que o caminho para a api está correto (ex: ../servicos/api)
+import api from '../services/api'; // Verifique se o caminho está correto
 
-// 1. CRIA O CONTEXTO (ESTA LINHA ESTAVA EM FALTA)
 export const AuthContexto = createContext({});
 
-// 2. CRIA O PROVEDOR
 export function AuthProvider({ children }) {
   const [utilizador, setUtilizador] = useState(null);
+  const [loading, setLoading] = useState(true); // NOVO ESTADO
 
-  // Efeito para carregar o utilizador do localStorage quando a app inicia (APENAS UM)
   useEffect(() => {
     const tokenGuardado = localStorage.getItem('token');
     const utilizadorGuardado = localStorage.getItem('utilizador');
@@ -25,20 +23,18 @@ export function AuthProvider({ children }) {
         localStorage.removeItem('utilizador');
       }
     }
+    setLoading(false); // ATUALIZAÇÃO: Define o loading como falso no final
   }, []);
 
   async function login(email, senha) {
     try {
       const resposta = await api.post('/login', { email, senha });
-      const { usuario, token } = resposta.data; // Corrigido de 'user' para 'usuario' para corresponder ao backend
+      const { usuario, token } = resposta.data;
 
       localStorage.setItem('token', token);
       localStorage.setItem('utilizador', JSON.stringify(usuario));
-
       api.defaults.headers.Authorization = `Bearer ${token}`;
-
       setUtilizador(usuario);
-      console.log("CONTEXTO: Login bem-sucedido! Estado do utilizador atualizado para:", usuario);
       return true;
     } catch (erro) {
       console.error("Erro no login:", erro);
@@ -54,7 +50,7 @@ export function AuthProvider({ children }) {
   }
 
   return (
-    <AuthContexto.Provider value={{ utilizador, assinado: !!utilizador, login, logout }}>
+    <AuthContexto.Provider value={{ utilizador, assinado: !!utilizador, login, logout, loading }}> {/* ATUALIZAÇÃO: Adiciona 'loading' */}
       {children}
     </AuthContexto.Provider>
   );

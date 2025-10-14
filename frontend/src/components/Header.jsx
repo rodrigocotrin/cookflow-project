@@ -1,18 +1,11 @@
-// src/components/Header.jsx
+// Arquivo: src/components/Header.jsx
 import { Link, useNavigate } from 'react-router-dom';
 import { useContext } from 'react';
-import { AuthContexto } from '../context/AuthContexto'; // Verifique se este caminho está correto para si
+import { AuthContexto } from '../context/AuthContexto';
 
 export default function Header() {
   const { assinado, utilizador, logout } = useContext(AuthContexto);
   const navigate = useNavigate();
-
-  // --- NOSSO ESPIÃO DE DEPURAÇÃO ---
-  console.log("Valores do Contexto no Header:", {
-    assinado: assinado,
-    utilizador: utilizador,
-  });
-  // ------------------------------------
 
   const handleLogout = () => {
     logout();
@@ -21,19 +14,23 @@ export default function Header() {
 
   return (
     <header className="bg-gray-800 text-white shadow-md">
-      {/* ... o resto do seu código JSX continua aqui, sem alterações ... */}
       <nav className="container mx-auto px-6 py-4 flex justify-between items-center">
         <Link to="/" className="text-2xl font-bold text-green-400">
           CookFlow
         </Link>
+
         <ul className="flex items-center space-x-6">
           <li>
             <Link to="/" className="hover:text-green-300">Home</Link>
           </li>
+
           {assinado ? (
             <>
-              <li className="font-medium">
-                Olá, {utilizador?.nome?.split(' ')[0]}! {/* Adicionado '?' para segurança */}
+              <li>
+                <Link to="/criar-receita" className="hover:text-green-300 font-medium">Criar Receita</Link>
+              </li>
+              <li className="font-medium text-gray-300">
+                Olá, {utilizador.nome.split(' ')[0]}!
               </li>
               <li>
                 <button
