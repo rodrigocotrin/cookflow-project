@@ -71,21 +71,37 @@ const adicionarComentario = async (requisicao, resposta) => {
     }
 };
 
-const listarComentarios = async (requisicao, resposta) => {
-    const { id: id_receita } = requisicao.params;
+const listarComentarios = async (req, res) => {
+    // CORREÇÃO AQUI: Mudamos de 'idReceita' para 'id' para corresponder à rota.
+    const { id } = req.params; 
+
+    console.log(`Buscando comentários para a receita com ID: ${id}`); // A depuração agora mostrará o ID correto
+
+    if (!id) {
+        return res.status(400).json({ mensagem: 'O ID da receita não foi fornecido no URL.' });
+    }
+
     try {
         const query = `
-            SELECT c.id_comentario, c.conteudo, c.data_criacao, u.id_usuario, u.nome AS nome_usuario
+            SELECT 
+                c.id_comentario, c.conteudo, c.data_criacao,
+                u.id_usuario, u.nome AS nome_usuario,
+                a.nota AS nota_avaliacao
             FROM comentarios c
             JOIN usuarios u ON c.id_usuario = u.id_usuario
+            LEFT JOIN avaliacoes a ON c.id_usuario = a.id_usuario AND c.id_receita = a.id_receita
             WHERE c.id_receita = $1
             ORDER BY c.data_criacao DESC;
         `;
-        const resultado = await db.query(query, [id_receita]);
-        return resposta.status(200).json(resultado.rows);
-    } catch (erro) {
-        console.error('Erro ao listar comentários:', erro);
-        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+        // Usamos a constante 'id' que agora tem o valor correto.
+        const { rows } = await db.query(query, [id]); 
+        
+        console.log(`Encontrados ${rows.length} comentários no banco de dados.`);
+
+        res.json(rows);
+    } catch (error) {
+        console.error('Erro detalhado ao listar comentários:', error);
+        res.status(500).json({ mensagem: 'Erro interno do servidor ao buscar comentários.' });
     }
 };
 
@@ -119,6 +135,6 @@ const editarComentario = async (requisicao, resposta) => {
 module.exports = {
     avaliarReceita,
     adicionarComentario,
-    listarComentarios,
+    listarComentarios, 
     editarComentario, 
 };

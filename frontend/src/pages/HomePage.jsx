@@ -66,7 +66,7 @@ export default function HomePage() {
     <div className="container mx-auto px-4 py-8">
       <div className="text-center mb-12">
         <h1 className="text-5xl font-bold text-verde-floresta">Descubra Novas Receitas</h1>
-        <p className="text-xl text-cinza-ardosia mt-2">Inspire-se e planeie as suas próximas refeições.</p>
+        <p className="text-xl text-cinza-ardosia mt-2">Inspire-se e faça as suas próximas refeições.</p>
       </div>
 
       {receitas.length === 0 && !loading ? (
@@ -87,7 +87,7 @@ export default function HomePage() {
                 </div>
                 <div className="p-6 flex-grow flex flex-col">
                   <h2 className="text-2xl font-bold text-verde-floresta group-hover:text-terracota-500 transition-colors duration-300 truncate">{receita.titulo}</h2>
-                  <p className="text-sm text-cinza-ardosia mt-1">por {receita.nome_usuario}</p>
+                  <p className="text-sm text-cinza-ardosia mt-1">por: {receita.nome_usuario}</p>
                   <p className="text-gray-600 mt-3 h-12 overflow-hidden text-ellipsis flex-grow">
                     {receita.descricao}
                   </p>

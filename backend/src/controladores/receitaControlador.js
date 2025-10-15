@@ -68,7 +68,7 @@ const cadastrarReceita = async (requisicao, resposta) => {
 const listarReceitas = async (requisicao, resposta) => {
     const { busca, categoria, dificuldade } = requisicao.query;
     try {
-        // SQL ATUALIZADO: Agora calcula a média e o total de avaliações
+        // Esta query base agora seleciona TODOS os campos necessários para o card
         let queryBase = `
             SELECT 
                 r.id_receita, 
@@ -76,15 +76,15 @@ const listarReceitas = async (requisicao, resposta) => {
                 r.descricao, 
                 r.dificuldade, 
                 r.tempo_preparo_minutos,
+                r.url_imagem, -- <<< Garantindo que a URL da imagem está aqui
                 c.nome AS nome_categoria, 
                 u.nome AS nome_usuario,
-                r.url_imagem,
-                COALESCE(ROUND(AVG(a.nota), 1), 0) AS media_avaliacoes, -- Média com 1 casa decimal, 0 se não houver
-                COUNT(a.id_avaliacao) AS total_avaliacoes -- Total de avaliações
+                COALESCE(ROUND(AVG(a.nota), 1), 0) AS media_avaliacoes,
+                COUNT(a.id_avaliacao) AS total_avaliacoes
             FROM receitas r
             JOIN usuarios u ON r.id_usuario = u.id_usuario
             JOIN categorias c ON r.id_categoria = c.id_categoria
-            LEFT JOIN avaliacoes a ON r.id_receita = a.id_receita -- LEFT JOIN para incluir receitas sem avaliação
+            LEFT JOIN avaliacoes a ON r.id_receita = a.id_receita
         `;
         const condicoes = [];
         const valores = [];
@@ -114,7 +114,7 @@ const listarReceitas = async (requisicao, resposta) => {
             queryBase += ` WHERE ${condicoes.join(' AND ')}`;
         }
         
-        // Agrupamento necessário para as funções de agregação (AVG, COUNT)
+        // O GROUP BY é essencial para as funções AVG e COUNT
         queryBase += ` 
             GROUP BY r.id_receita, u.nome, c.nome
             ORDER BY r.data_criacao DESC;

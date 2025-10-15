@@ -62,7 +62,7 @@ export default function EditarReceitaPage() {
     async function carregarDados() {
       try {
         const [respostaReceita, respostaIngredientes] = await Promise.all([
-          api.get(`/receita/${id}`),
+          api.get(`/receitas/${id}`),
           api.get('/ingredientes')
         ]);
 
@@ -145,7 +145,7 @@ export default function EditarReceitaPage() {
 
       await api.put(`/receitas/${id}`, dadosReceita);
       toast.success("Receita atualizada com sucesso!");
-      navigate(`/receitas/${id}`);
+      navigate(`/receita/${id}`);
     } catch (err) {
       toast.error(err.response?.data?.mensagem || 'Ocorreu um erro ao atualizar a receita.');
     }
