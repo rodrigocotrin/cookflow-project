@@ -60,8 +60,62 @@ const listarReceitasParaPlanejador = async (requisicao, resposta) => {
     }
 };
 
+const obterDadosCompletosPerfil = async (requisicao, resposta) => {
+    const { id: id_usuario } = requisicao.usuario;
+    try {
+        // As queries existentes para usuário, minhas receitas e favoritos continuam iguais
+        const usuarioQuery = 'SELECT nome, data_criacao FROM usuarios WHERE id_usuario = $1';
+        const minhasReceitasQuery = `
+            SELECT id_receita, titulo, descricao, url_imagem
+            FROM receitas WHERE id_usuario = $1 ORDER BY data_criacao DESC`;
+        const favoritosQuery = `
+            SELECT r.id_receita, r.titulo, r.url_imagem, u.nome AS nome_usuario
+            FROM favoritos f JOIN receitas r ON f.id_receita = r.id_receita
+            JOIN usuarios u ON r.id_usuario = u.id_usuario WHERE f.id_usuario = $1 ORDER BY r.titulo ASC`;
+
+        // --- NOVA QUERY ADICIONADA ---
+        // Busca os comentários e a nota de avaliação associada que o usuário fez
+        const minhasAvaliacoesQuery = `
+            SELECT 
+                c.id_comentario, c.conteudo, c.data_criacao,
+                a.nota,
+                r.id_receita, r.titulo, r.url_imagem
+            FROM comentarios c
+            JOIN receitas r ON c.id_receita = r.id_receita
+            LEFT JOIN avaliacoes a ON c.id_usuario = a.id_usuario AND c.id_receita = a.id_receita
+            WHERE c.id_usuario = $1
+            ORDER BY c.data_criacao DESC;
+        `;
+        
+        // Executando todas as queries em paralelo para máxima eficiência
+        const [
+            resultadoUsuario,
+            resultadoMinhasReceitas,
+            resultadoFavoritos,
+            resultadoMinhasAvaliacoes // Executando a nova query
+        ] = await Promise.all([
+            db.query(usuarioQuery, [id_usuario]),
+            db.query(minhasReceitasQuery, [id_usuario]),
+            db.query(favoritosQuery, [id_usuario]),
+            db.query(minhasAvaliacoesQuery, [id_usuario]) // Nova query
+        ]);
+
+        const dadosCompletos = {
+            usuario: resultadoUsuario.rows[0],
+            minhasReceitas: resultadoMinhasReceitas.rows,
+            receitasFavoritas: resultadoFavoritos.rows,
+            minhasAvaliacoes: resultadoMinhasAvaliacoes.rows, // NOVO DADO NA RESPOSTA
+        };
+        return resposta.status(200).json(dadosCompletos);
+    } catch (erro) {
+        console.error('Erro ao obter dados completos do perfil:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
 module.exports = {
     listarReceitasDoUsuario,
     listarReceitasFavoritas,
-    listarReceitasParaPlanejador, // NOVA EXPORTAÇÃO
+    listarReceitasParaPlanejador,
+    obterDadosCompletosPerfil, 
 };

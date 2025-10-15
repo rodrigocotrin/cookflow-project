@@ -1,10 +1,16 @@
+// Arquivo: backend/src/rotas/listaComprasRotas.js
 const express = require('express');
 const listaComprasControlador = require('../controladores/listaComprasControlador');
 const verificarLogin = require('../intermediarios/autenticacao');
 
 const rotas = express.Router();
 
-// A geração da lista de compras é uma funcionalidade para usuários logados
-rotas.post('/lista-de-compras', verificarLogin, listaComprasControlador.gerarListaDeCompras);
+// NOVO: Rota GET para buscar as receitas selecionáveis
+// Endpoint: GET /api/lista-de-compras/receitas
+rotas.get('/receitas', verificarLogin, listaComprasControlador.listarReceitasParaPlanejador);
+
+// Rota POST para gerar a lista
+// Endpoint: POST /api/lista-de-compras
+rotas.post('/', verificarLogin, listaComprasControlador.gerarListaDeCompras);
 
 module.exports = rotas;

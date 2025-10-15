@@ -9,6 +9,7 @@ const rotas = express.Router();
 rotas.get('/planejador/receitas', verificarLogin, perfilControlador.listarReceitasParaPlanejador);
 
 // Endpoints para a página de perfil
+rotas.get('/perfil/completo', verificarLogin, perfilControlador.obterDadosCompletosPerfil);
 rotas.get('/perfil/minhas-receitas', verificarLogin, perfilControlador.listarReceitasDoUsuario);
 rotas.get('/perfil/favoritos', verificarLogin, perfilControlador.listarReceitasFavoritas);
 
