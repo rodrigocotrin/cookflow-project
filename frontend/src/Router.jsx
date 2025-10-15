@@ -1,4 +1,4 @@
-// Arquivo: src/Router.jsx (CÓDIGO COMPLETO)
+// Arquivo: src/Router.jsx
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 
 import MainLayout from './layouts/MainLayout';
@@ -9,7 +9,8 @@ import ReceitaDetalhePage from './pages/ReceitaDetalhePage';
 import CriarReceitaPage from './pages/CriarReceitaPage';
 import PerfilPage from './pages/PerfilPage';
 import PlanejadorPage from './pages/PlanejadorPage';
-import EditarReceitaPage from './pages/EditarReceitaPage'; 
+import EditarReceitaPage from './pages/EditarReceitaPage';
+import PaginaBusca from './pages/PaginaBusca'; // NOVA IMPORTAÇÃO
 import RotaProtegida from './componentes_uteis/RotaProtegida';
 
 const router = createBrowserRouter([
@@ -21,12 +22,13 @@ const router = createBrowserRouter([
       { path: 'login', element: <LoginPage /> },
       { path: 'cadastro', element: <RegisterPage /> },
       { path: 'receita/:id', element: <ReceitaDetalhePage /> },
+      { path: 'buscar', element: <PaginaBusca /> }, // NOVA ROTA
       {
         path: '/',
         element: <RotaProtegida />,
         children: [
           { path: 'criar-receita', element: <CriarReceitaPage /> },
-          { path: 'editar-receita/:id', element: <EditarReceitaPage /> }, 
+          { path: 'editar-receita/:id', element: <EditarReceitaPage /> },
           { path: 'perfil', element: <PerfilPage /> },
           { path: 'planejador', element: <PlanejadorPage /> },
         ],
