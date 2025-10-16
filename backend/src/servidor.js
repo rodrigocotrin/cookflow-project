@@ -1,4 +1,4 @@
-// Arquivo: backend/src/servidor.js (VERSÃO DEFINITIVA COM CORS CORRIGIDO)
+// Arquivo: backend/src/servidor.js (VERSÃO COM CORREÇÃO DEFINITIVA DE CORS)
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -12,24 +12,25 @@ const listaComprasRotas = require('./rotas/listaComprasRotas');
 
 const app = express();
 
-// --- Configuração de CORS Definitiva ---
-// Lista de origens estáticas permitidas (produção e local)
+// --- Configuração de CORS Definitiva e Robusta ---
 const whitelist = [
-    process.env.FRONTEND_URL, // Sua URL de produção
-    process.env.FRONTEND_URL_LOCAL // Sua URL local de desenvolvimento
+    process.env.FRONTEND_URL,       // Sua URL de produção (ex: 'https://cookflow-project.vercel.app')
+    process.env.FRONTEND_URL_LOCAL  // Sua URL local (ex: 'http://localhost:5173')
 ];
 
 const corsOptions = {
-    origin: function (origin, callback) {
-        // A Vercel adiciona a variável de ambiente VERCEL_URL para deploys de preview.
-        // Construímos a URL completa do preview do frontend a partir dela.
-        const previewUrl = process.env.VERCEL_URL && `https://cookflow-project-${process.env.VERCEL_GIT_COMMIT_SHA.substring(0, 8)}-${process.env.VERCEL_GIT_REPO_SLUG}.vercel.app`;
+    origin: (origin, callback) => {
+        // Expressão Regular para validar as URLs de preview da Vercel para este projeto.
+        // Aceita 'https://cookflow-project.vercel.app' e 'https://cookflow-project-QUALQUERCOISA.vercel.app'
+        const vercelPattern = /^https:\/\/cookflow-project(-[a-z0-9-]+)?\.vercel\.app$/;
 
-        // Permite a origem se ela estiver na nossa lista, se for a URL de preview, ou se não houver origem (testes de API)
-        if (whitelist.indexOf(origin) !== -1 || origin === previewUrl || !origin) {
+        // Permite a requisição se a origem:
+        // 1. Estiver na whitelist estática (produção, local).
+        // 2. Corresponder ao padrão de preview/produção da Vercel.
+        // 3. Não tiver origem (ex: Postman, Insomnia).
+        if (whitelist.includes(origin) || vercelPattern.test(origin) || !origin) {
             callback(null, true);
         } else {
-            // Se a origem não for permitida, rejeita a requisição.
             callback(new Error('Acesso não permitido pela política de CORS'));
         }
     },
