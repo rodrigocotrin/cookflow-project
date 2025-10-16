@@ -1,7 +1,25 @@
 // src/pages/RegisterPage.jsx
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import api from '../services/api'; // Verifique se o caminho para a api está correto
+import api from '../services/api';
+
+// --- Ícones para a UI ---
+function IconeUsuarioPlus() {
+  return (
+    <div className="mx-auto h-12 w-12 text-terracota-500/50">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 7.5v3m0 0v3m0-3h3m-3 0h-3m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
+        </svg>
+    </div>
+  );
+}
+function IconeSetaDireita() {
+    return (
+        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+        </svg>
+    );
+}
 
 export default function RegisterPage() {
   const [nome, setNome] = useState('');
@@ -22,18 +40,12 @@ export default function RegisterPage() {
     }
 
     try {
-      // Faz a requisição POST para o nosso endpoint de cadastro no backend
       await api.post('/usuarios', { nome, email, senha });
-
-      setSucesso('Cadastro realizado com sucesso! A redirecionar para o login...');
-
-      // Aguarda 2 segundos e redireciona o utilizador para a página de login
+      setSucesso('Cadastro realizado com sucesso! Redirecionando...');
       setTimeout(() => {
         navigate('/login');
       }, 2000);
-
     } catch (err) {
-      // Verifica se o erro é do backend (ex: e-mail já existe)
       if (err.response && err.response.data && err.response.data.mensagem) {
         setErro(err.response.data.mensagem);
       } else {
@@ -43,15 +55,21 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8 p-10 bg-white shadow-lg rounded-lg">
+    <div className="bg-creme min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
+      <div className="max-w-lg w-full space-y-8 p-10 bg-white/80 backdrop-blur-sm shadow-2xl rounded-2xl border border-black/5">
+        
         <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Crie a sua conta
+          <IconeUsuarioPlus />
+          <h2 className="mt-6 text-center text-3xl font-bold text-verde-floresta">
+            Crie sua conta
           </h2>
+          <p className="mt-2 text-center text-md text-cinza-ardosia">
+            Junte-se à comunidade e comece a cozinhar.
+          </p>
         </div>
+        
         <form className="mt-8 space-y-6" onSubmit={handleRegister}>
-          <div className="rounded-md shadow-sm -space-y-px">
+          <div className="space-y-4">
             <div>
               <label htmlFor="name" className="sr-only">Nome</label>
               <input
@@ -59,7 +77,7 @@ export default function RegisterPage() {
                 name="name"
                 type="text"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-t-md focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="w-full px-4 py-3 text-verde-floresta bg-zinc-50 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracota-500 transition-shadow"
                 placeholder="Nome completo"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
@@ -72,7 +90,7 @@ export default function RegisterPage() {
                 name="email"
                 type="email"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="w-full px-4 py-3 text-verde-floresta bg-zinc-50 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracota-500 transition-shadow"
                 placeholder="Endereço de e-mail"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -85,7 +103,7 @@ export default function RegisterPage() {
                 name="password"
                 type="password"
                 required
-                className="appearance-none rounded-none relative block w-full px-3 py-2 border border-gray-300 placeholder-gray-500 text-gray-900 rounded-b-md focus:outline-none focus:ring-green-500 focus:border-green-500 sm:text-sm"
+                className="w-full px-4 py-3 text-verde-floresta bg-zinc-50 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracota-500 transition-shadow"
                 placeholder="Senha"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
@@ -99,13 +117,20 @@ export default function RegisterPage() {
           <div>
             <button
               type="submit"
-              className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+              className="group w-full flex items-center justify-center py-3 px-4 border border-transparent font-bold rounded-lg text-white bg-verde-floresta hover:bg-opacity-90 transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-terracota-500"
             >
               Criar conta
+              <IconeSetaDireita />
             </button>
           </div>
+          
           <div className="text-sm text-center">
-            <p>Já tem uma conta? <Link to="/login" className="font-medium text-green-600 hover:text-green-500">Faça login</Link></p>
+            <p className="text-cinza-ardosia">
+              Já tem uma conta?{' '}
+              <Link to="/login" className="font-medium text-terracota-500 hover:text-terracota-600 transition-colors">
+                Faça login
+              </Link>
+            </p>
           </div>
         </form>
       </div>

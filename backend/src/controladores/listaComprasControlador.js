@@ -53,19 +53,18 @@ const gerarListaDeCompras = async (requisicao, resposta) => {
     try {
         const query = `
             SELECT 
-                i.nome, 
-                ri.quantidade, 
-                ri.unidade_medida,
-                r.titulo AS receita_origem
+                i.nome, ri.quantidade, ri.unidade_medida, r.titulo AS receita_origem
             FROM receitas_ingredientes ri
             JOIN ingredientes i ON ri.id_ingrediente = i.id_ingrediente
             JOIN receitas r ON ri.id_receita = r.id_receita
             WHERE ri.id_receita = ANY($1::int[]);
         `;
         const resultado = await db.query(query, [ids_receitas]);
-        const listaConsolidada = new Map();
+        const todosIngredientes = resultado.rows;
 
-        for (const ingrediente of resultado.rows) {
+        // --- Lógica de Consolidação (inalterada) ---
+        const listaConsolidada = new Map();
+        for (const ingrediente of todosIngredientes) {
             const qtd = parseFloat(ingrediente.quantidade);
             const chave = `${ingrediente.nome}_${ingrediente.unidade_medida}`;
             const fonte = { receita: ingrediente.receita_origem, quantidade: qtd };
@@ -76,16 +75,29 @@ const gerarListaDeCompras = async (requisicao, resposta) => {
                 item.fontes.push(fonte);
             } else {
                 listaConsolidada.set(chave, {
-                    nome: ingrediente.nome,
-                    unidade_medida: ingrediente.unidade_medida,
-                    quantidade_total: qtd,
-                    fontes: [fonte],
+                    nome: ingrediente.nome, unidade_medida: ingrediente.unidade_medida,
+                    quantidade_total: qtd, fontes: [fonte],
                 });
             }
         }
         
-        const listaFinal = Array.from(listaConsolidada.values());
-        return resposta.status(200).json(listaFinal);
+        // --- NOVA LÓGICA: Agrupar por Receita ---
+        const listaPorReceita = todosIngredientes.reduce((acc, ing) => {
+            const { receita_origem, ...resto } = ing;
+            if (!acc[receita_origem]) {
+                acc[receita_origem] = [];
+            }
+            acc[receita_origem].push(resto);
+            return acc;
+        }, {});
+
+        // --- Resposta Final com Ambos os Formatos ---
+        const respostaFinal = {
+            consolidada: Array.from(listaConsolidada.values()),
+            porReceita: listaPorReceita,
+        };
+
+        return resposta.status(200).json(respostaFinal);
 
     } catch (erro) {
         console.error('Erro ao gerar lista de compras:', erro);
