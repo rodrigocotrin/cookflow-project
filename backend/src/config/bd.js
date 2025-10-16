@@ -5,6 +5,7 @@ const { Pool } = require('pg');
 // Não é necessário chamar require('dotenv').config() aqui.
 
 // Verifica se a variável de ambiente de conexão, fornecida pela Vercel/Neon, existe.
+// Esta é a variável padrão que a integração Vercel + Neon cria.
 if (!process.env.POSTGRES_URL) {
     throw new Error("ERRO CRÍTICO: A variável de ambiente POSTGRES_URL não foi encontrada. Verifique as configurações do projeto na Vercel.");
 }
