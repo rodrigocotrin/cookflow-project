@@ -1,18 +1,20 @@
-// Arquivo: backend/src/config/bd.js (ESTE ARQUIVO JÁ ESTÁ CORRETO)
-
+// Arquivo: backend/src/config/bd.js (VERSÃO FINAL E CORRIGIDA)
 const { Pool } = require('pg');
-require('dotenv').config();
 
-// Verifica se a variável de ambiente principal está definida.
-// A Vercel usa 'POSTGRES_URL' por padrão na integração com Neon, mas 'DATABASE_URL' também funciona se configurado manualmente.
-if (!process.env.DATABASE_URL && !process.env.POSTGRES_URL) {
-    throw new Error("FATAL: Nenhuma variável de ambiente de conexão com o banco de dados (DATABASE_URL ou POSTGRES_URL) foi definida.");
+// Em ambientes de produção como a Vercel, as variáveis de ambiente são injetadas diretamente.
+// Não é necessário chamar require('dotenv').config() aqui.
+
+// Verifica se a variável de ambiente de conexão, fornecida pela Vercel/Neon, existe.
+if (!process.env.POSTGRES_URL) {
+    throw new Error("ERRO CRÍTICO: A variável de ambiente POSTGRES_URL não foi encontrada. Verifique as configurações do projeto na Vercel.");
 }
 
 const pool = new Pool({
-    // Usa a variável de ambiente da Vercel/Neon ou a sua variável local.
-    connectionString: process.env.POSTGRES_URL || process.env.DATABASE_URL,
-    // Esta configuração é essencial para que a conexão SSL com o Neon funcione no ambiente serverless.
+    // Usa a string de conexão completa fornecida pela Vercel.
+    // Ela já contém usuário, senha, host, porta e nome do banco.
+    connectionString: process.env.POSTGRES_URL,
+    
+    // Esta configuração é essencial para que a conexão SSL com o Neon funcione.
     ssl: {
         rejectUnauthorized: false
     }
