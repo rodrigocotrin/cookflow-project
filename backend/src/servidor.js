@@ -1,4 +1,4 @@
-// Arquivo: backend/src/servidor.js (VERSÃO COM ORDEM DE ROTAS CORRIGIDA)
+// Arquivo: backend/src/servidor.js (VERSÃO FINAL COM CORS DINÂMICO)
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -12,22 +12,39 @@ const listaComprasRotas = require('./rotas/listaComprasRotas');
 
 const app = express();
 
-// --- Middlewares Globais ---
-// Configurados primeiro para serem aplicados a todas as requisições
+// --- Configuração de CORS Robusta ---
+// Lista de origens permitidas
+const whitelist = [
+    process.env.FRONTEND_URL, // Sua URL de produção: https://cookflow-project.vercel.app
+    process.env.FRONTEND_URL_LOCAL // Sua URL local: http://localhost:5173
+];
+
+// Adiciona dinamicamente a URL de preview da Vercel à whitelist, se existir
+if (process.env.VERCEL_URL) {
+    whitelist.push(`https-/${process.env.VERCEL_URL}`);
+}
+
 const corsOptions = {
-  origin: process.env.FRONTEND_URL, // Ex: https://cookflow-project.vercel.app
-  optionsSuccessStatus: 200
+    origin: function (origin, callback) {
+        // Permite requisições se a origem estiver na whitelist (ou se não houver origem, como em testes de API)
+        if (whitelist.indexOf(origin) !== -1 || !origin) {
+            callback(null, true);
+        } else {
+            callback(new Error('Acesso não permitido pela política de CORS'));
+        }
+    },
+    optionsSuccessStatus: 200
 };
+
+// --- Middlewares Globais ---
 app.use(cors(corsOptions));
 app.use(express.json());
 
 // --- Rotas Públicas de Verificação de Saúde ---
-// Definidas ANTES das rotas da API para garantir que sejam correspondidas primeiro.
 app.get('/', (requisicao, resposta) => {
-    resposta.json({ 
-        status: 'online', 
+    resposta.json({
+        status: 'online',
         mensagem: 'Bem-vindo à API do CookFlow!',
-        documentacao: 'Acesse /api para os endpoints da aplicação.'
     });
 });
 
@@ -35,14 +52,12 @@ app.get('/api', (requisicao, resposta) => {
     resposta.json({ mensagem: 'API do CookFlow está funcionando corretamente!' });
 });
 
-
 // --- Registro das Rotas da Aplicação ---
-// Estas rotas podem conter seus próprios middlewares de autenticação.
 app.use('/api', usuarioRotas);
 app.use('/api', receitaRotas);
 app.use('/api', perfilRotas);
 app.use('/api', interacaoRotas);
-app.use('/api/lista-de-compras', listaComprasRotas); 
+app.use('/api/lista-de-compras', listaComprasRotas);
 
 // Exporta a instância do app para a Vercel
 module.exports = app;
