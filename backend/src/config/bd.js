@@ -1,26 +1,34 @@
-// Arquivo: backend/src/config/bd.js (VERSÃO FINAL E CORRIGIDA)
+// Arquivo: backend/src/config/bd.js (VERSÃO CORRIGIDA E DEFINITIVA)
 const { Pool } = require('pg');
 
-// Em ambientes de produção como a Vercel, as variáveis de ambiente são injetadas diretamente.
-// Não é necessário chamar require('dotenv').config() aqui.
-
-// Verifica se a variável de ambiente de conexão, fornecida pela Vercel/Neon, existe.
-// Esta é a variável padrão que a integração Vercel + Neon cria.
-if (!process.env.POSTGRES_URL) {
-    throw new Error("ERRO CRÍTICO: A variável de ambiente POSTGRES_URL não foi encontrada. Verifique as configurações do projeto na Vercel.");
+// Carrega as variáveis de ambiente do arquivo .env apenas em ambiente de desenvolvimento
+if (process.env.NODE_ENV !== 'production') {
+    require('dotenv').config();
 }
 
-const pool = new Pool({
-    // Usa a string de conexão completa fornecida pela Vercel.
-    // Ela já contém usuário, senha, host, porta e nome do banco.
-    connectionString: process.env.POSTGRES_URL,
-    
-    // Esta configuração é essencial para que a conexão SSL com o Neon funcione.
-    ssl: {
-        rejectUnauthorized: false
-    }
-});
+let pool;
 
-module.exports = {
-    query: (text, params) => pool.query(text, params),
-};
+// LÓGICA DE AMBIENTE: Verifica se está em produção (Vercel)
+if (process.env.POSTGRES_URL) {
+    console.log("A conectar à base de dados de PRODUÇÃO (Vercel/Neon)...");
+    pool = new Pool({
+        connectionString: process.env.POSTGRES_URL,
+        ssl: {
+            rejectUnauthorized: false
+        }
+    });
+} else {
+    // Se não estiver em produção, usa as credenciais locais do arquivo .env
+    console.log("A conectar à base de dados LOCAL...");
+    pool = new Pool({
+        host: process.env.DB_HOST,
+        port: process.env.DB_PORT,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASSWORD,
+        database: process.env.DB_DATABASE
+    });
+}
+
+// Exporta o objeto pool completo.
+// Ele contém os métodos .query() e .connect(), tornando-o compatível com todos os controladores.
+module.exports = pool;
