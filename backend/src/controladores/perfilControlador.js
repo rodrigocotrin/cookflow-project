@@ -1,121 +1,297 @@
-// Arquivo: src/controladores/perfilControlador.js
+// Arquivo: src/controladores/receitaControlador.js (VERSÃO CORRIGIDA)
 const db = require('../config/bd');
 
-const listarReceitasDoUsuario = async (requisicao, resposta) => {
+// Função de validação atualizada para incluir a verificação da imagem
+const validarCorpoReceita = (corpo) => {
+    const { titulo, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes, url_imagem } = corpo;
+    if (!titulo || titulo.trim() === '') return 'O campo "título" é obrigatório.';
+    if (!url_imagem || url_imagem.trim() === '') return 'A URL da imagem é obrigatória.';
+    if (!id_categoria) return 'O campo "categoria" é obrigatório.';
+    if (!tempo_preparo_minutos) return 'O campo "tempo de preparo" é obrigatório.';
+    if (!dificuldade) return 'O campo "dificuldade" é obrigatório.';
+    if (!instrucoes || instrucoes.trim() === '') return 'O campo "instruções" é obrigatório.';
+    if (!ingredientes || !Array.isArray(ingredientes) || ingredientes.length === 0) {
+        return 'A receita deve ter pelo menos um ingrediente.';
+    }
+    for (const ing of ingredientes) {
+        if (!ing.nome || !ing.quantidade || !ing.unidade_medida) {
+            return 'Todos os campos de um ingrediente (nome, quantidade, unidade) são obrigatórios.';
+        }
+    }
+    return null; // Nenhum erro
+};
+
+const cadastrarReceita = async (requisicao, resposta) => {
     const { id: id_usuario } = requisicao.usuario;
+    const erroValidacao = validarCorpoReceita(requisicao.body);
+    if (erroValidacao) {
+        return resposta.status(400).json({ mensagem: erroValidacao });
+    }
+    
+    const { titulo, descricao, url_imagem, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes } = requisicao.body;
+    
+    // CORREÇÃO AQUI: de 'db.pool.connect()' para 'db.connect()'
+    const client = await db.connect(); 
+
     try {
-        const query = `
-            SELECT r.id_receita, r.titulo, r.descricao, r.dificuldade, c.nome AS nome_categoria
-            FROM receitas r
-            JOIN categorias c ON r.id_categoria = c.id_categoria
-            WHERE r.id_usuario = $1
-            ORDER BY r.data_criacao DESC;
+        await client.query('BEGIN');
+        const receitaQuery = `
+            INSERT INTO receitas (id_usuario, id_categoria, titulo, descricao, url_imagem, tempo_preparo_minutos, dificuldade, instrucoes)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id_receita;
         `;
-        const resultado = await db.query(query, [id_usuario]);
-        return resposta.status(200).json(resultado.rows);
+        const resultadoReceita = await client.query(receitaQuery, [id_usuario, id_categoria, titulo, descricao, url_imagem, tempo_preparo_minutos, dificuldade, instrucoes]);
+        const id_receita = resultadoReceita.rows[0].id_receita;
+
+        for (const ingrediente of ingredientes) {
+            let resultadoIngrediente = await client.query('SELECT id_ingrediente FROM ingredientes WHERE nome = $1', [ingrediente.nome]);
+            let id_ingrediente;
+            if (resultadoIngrediente.rows.length === 0) {
+                const novoIngredienteResult = await client.query('INSERT INTO ingredientes (nome) VALUES ($1) RETURNING id_ingrediente', [ingrediente.nome]);
+                id_ingrediente = novoIngredienteResult.rows[0].id_ingrediente;
+            } else {
+                id_ingrediente = resultadoIngrediente.rows[0].id_ingrediente;
+            }
+            const receitaIngredienteQuery = `
+                INSERT INTO receitas_ingredientes (id_receita, id_ingrediente, quantidade, unidade_medida)
+                VALUES ($1, $2, $3, $4);
+            `;
+            await client.query(receitaIngredienteQuery, [id_receita, id_ingrediente, ingrediente.quantidade, ingrediente.unidade_medida]);
+        }
+        await client.query('COMMIT');
+        return resposta.status(201).json({ id_receita, titulo, mensagem: 'Receita cadastrada com sucesso!' });
     } catch (erro) {
-        console.error('Erro ao listar receitas do utilizador:', erro);
+        await client.query('ROLLBACK');
+        console.error('Erro ao cadastrar receita:', erro);
         return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    } finally {
+        client.release();
     }
 };
 
-const listarReceitasFavoritas = async (requisicao, resposta) => {
-    const { id: id_usuario } = requisicao.usuario;
+const listarReceitas = async (requisicao, resposta) => {
+    const { busca, categoria, dificuldade } = requisicao.query;
     try {
-        const query = `
-            SELECT r.id_receita, r.titulo, r.descricao, c.nome as nome_categoria, u.nome as nome_usuario
-            FROM favoritos f
-            JOIN receitas r ON f.id_receita = r.id_receita
+        let queryBase = `
+            SELECT 
+                r.id_receita, 
+                r.titulo, 
+                r.descricao, 
+                r.dificuldade, 
+                r.tempo_preparo_minutos,
+                r.url_imagem,
+                c.nome AS nome_categoria, 
+                u.nome AS nome_usuario,
+                COALESCE(ROUND(AVG(a.nota), 1), 0) AS media_avaliacoes,
+                COUNT(a.id_avaliacao) AS total_avaliacoes
+            FROM receitas r
             JOIN usuarios u ON r.id_usuario = u.id_usuario
             JOIN categorias c ON r.id_categoria = c.id_categoria
-            WHERE f.id_usuario = $1;
+            LEFT JOIN avaliacoes a ON r.id_receita = a.id_receita
         `;
-        const resultado = await db.query(query, [id_usuario]);
-        return resposta.status(200).json(resultado.rows);
-    } catch (erro) {
-        console.error('Erro ao listar receitas favoritas:', erro);
-        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
-    }
-};
+        const condicoes = [];
+        const valores = [];
+        let contadorParam = 1;
 
-// --- NOVA FUNÇÃO PARA O PLANEJADOR ---
-const listarReceitasParaPlanejador = async (requisicao, resposta) => {
-    const { id: id_usuario } = requisicao.usuario;
-    try {
-        // Esta query combina as receitas criadas PELO utilizador com as receitas favoritadas POR ELE.
-        // O UNION remove duplicados automaticamente (caso o utilizador favorite uma receita que ele mesmo criou).
-        const query = `
-            SELECT id_receita, titulo FROM receitas WHERE id_usuario = $1
-            UNION
-            SELECT r.id_receita, r.titulo FROM favoritos f
-            JOIN receitas r ON f.id_receita = r.id_receita
-            WHERE f.id_usuario = $1
-            ORDER BY titulo ASC;
-        `;
-        const resultado = await db.query(query, [id_usuario]);
-        return resposta.status(200).json(resultado.rows);
-    } catch (erro) {
-        console.error('Erro ao listar receitas para o planejador:', erro);
-        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
-    }
-};
+        if (busca) {
+            condicoes.push(`(r.titulo ILIKE $${contadorParam} OR r.id_receita IN (
+                SELECT ri.id_receita FROM receitas_ingredientes ri
+                JOIN ingredientes i ON ri.id_ingrediente = i.id_ingrediente
+                WHERE i.nome ILIKE $${contadorParam}
+            ))`);
+            valores.push(`%${busca}%`);
+            contadorParam++;
+        }
+        if (categoria) {
+            condicoes.push(`c.nome = $${contadorParam}`);
+            valores.push(categoria);
+            contadorParam++;
+        }
+        if (dificuldade) {
+            condicoes.push(`r.dificuldade = $${contadorParam}`);
+            valores.push(dificuldade);
+            contadorParam++;
+        }
 
-const obterDadosCompletosPerfil = async (requisicao, resposta) => {
-    const { id: id_usuario } = requisicao.usuario;
-    try {
-        // As queries existentes para usuário, minhas receitas e favoritos continuam iguais
-        const usuarioQuery = 'SELECT nome, data_criacao FROM usuarios WHERE id_usuario = $1';
-        const minhasReceitasQuery = `
-            SELECT id_receita, titulo, descricao, url_imagem
-            FROM receitas WHERE id_usuario = $1 ORDER BY data_criacao DESC`;
-        const favoritosQuery = `
-            SELECT r.id_receita, r.titulo, r.url_imagem, u.nome AS nome_usuario
-            FROM favoritos f JOIN receitas r ON f.id_receita = r.id_receita
-            JOIN usuarios u ON r.id_usuario = u.id_usuario WHERE f.id_usuario = $1 ORDER BY r.titulo ASC`;
-
-        // --- NOVA QUERY ADICIONADA ---
-        // Busca os comentários e a nota de avaliação associada que o usuário fez
-        const minhasAvaliacoesQuery = `
-            SELECT 
-                c.id_comentario, c.conteudo, c.data_criacao,
-                a.nota,
-                r.id_receita, r.titulo, r.url_imagem
-            FROM comentarios c
-            JOIN receitas r ON c.id_receita = r.id_receita
-            LEFT JOIN avaliacoes a ON c.id_usuario = a.id_usuario AND c.id_receita = a.id_receita
-            WHERE c.id_usuario = $1
-            ORDER BY c.data_criacao DESC;
+        if (condicoes.length > 0) {
+            queryBase += ` WHERE ${condicoes.join(' AND ')}`;
+        }
+        
+        queryBase += ` 
+            GROUP BY r.id_receita, u.nome, c.nome
+            ORDER BY r.data_criacao DESC;
         `;
         
-        // Executando todas as queries em paralelo para máxima eficiência
-        const [
-            resultadoUsuario,
-            resultadoMinhasReceitas,
-            resultadoFavoritos,
-            resultadoMinhasAvaliacoes // Executando a nova query
-        ] = await Promise.all([
-            db.query(usuarioQuery, [id_usuario]),
-            db.query(minhasReceitasQuery, [id_usuario]),
-            db.query(favoritosQuery, [id_usuario]),
-            db.query(minhasAvaliacoesQuery, [id_usuario]) // Nova query
-        ]);
-
-        const dadosCompletos = {
-            usuario: resultadoUsuario.rows[0],
-            minhasReceitas: resultadoMinhasReceitas.rows,
-            receitasFavoritas: resultadoFavoritos.rows,
-            minhasAvaliacoes: resultadoMinhasAvaliacoes.rows, // NOVO DADO NA RESPOSTA
-        };
-        return resposta.status(200).json(dadosCompletos);
+        const resultado = await db.query(queryBase, valores);
+        return resposta.status(200).json(resultado.rows);
     } catch (erro) {
-        console.error('Erro ao obter dados completos do perfil:', erro);
+        console.error('Erro ao listar receitas:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
+const detalharReceita = async (requisicao, resposta) => {
+    const { id } = requisicao.params;
+    try {
+        const receitaQuery = `
+            SELECT 
+                r.id_receita, r.titulo, r.descricao, r.instrucoes, r.dificuldade, 
+                r.tempo_preparo_minutos, c.nome AS nome_categoria, u.nome AS nome_usuario, u.id_usuario,
+                r.id_categoria, r.url_imagem
+            FROM receitas r
+            JOIN usuarios u ON r.id_usuario = u.id_usuario
+            JOIN categorias c ON r.id_categoria = c.id_categoria
+            WHERE r.id_receita = $1;
+        `;
+        const resultadoReceita = await db.query(receitaQuery, [id]);
+        if (resultadoReceita.rows.length === 0) {
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada.' });
+        }
+        const receita = resultadoReceita.rows[0];
+
+        const ingredientesQuery = `
+            SELECT i.nome, ri.quantidade, ri.unidade_medida
+            FROM receitas_ingredientes ri
+            JOIN ingredientes i ON ri.id_ingrediente = i.id_ingrediente
+            WHERE ri.id_receita = $1;
+        `;
+        const resultadoIngredientes = await db.query(ingredientesQuery, [id]);
+        receita.ingredientes = resultadoIngredientes.rows;
+
+        const avaliacaoQuery = `
+            SELECT COALESCE(AVG(nota), 0) AS media_avaliacoes, COUNT(nota) AS total_avaliacoes 
+            FROM avaliacoes WHERE id_receita = $1;
+        `;
+        const resultadoAvaliacao = await db.query(avaliacaoQuery, [id]);
+        receita.media_avaliacoes = parseFloat(resultadoAvaliacao.rows[0].media_avaliacoes).toFixed(1);
+        receita.total_avaliacoes = parseInt(resultadoAvaliacao.rows[0].total_avaliacoes, 10);
+        return resposta.status(200).json(receita);
+    } catch (erro) {
+        console.error('Erro ao detalhar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+    
+const atualizarReceita = async (requisicao, resposta) => {
+    const { id: id_usuario_logado } = requisicao.usuario;
+    const { id: id_receita_a_editar } = requisicao.params;
+    const erroValidacao = validarCorpoReceita(requisicao.body);
+    if (erroValidacao) {
+        return resposta.status(400).json({ mensagem: erroValidacao });
+    }
+    
+    const { titulo, descricao, url_imagem, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes } = requisicao.body;
+    
+    // CORREÇÃO AQUI: de 'db.pool.connect()' para 'db.connect()'
+    const client = await db.connect();
+
+    try {
+        await client.query('BEGIN');
+        const receitaExistente = await client.query('SELECT * FROM receitas WHERE id_receita = $1 AND id_usuario = $2', [id_receita_a_editar, id_usuario_logado]);
+        if (receitaExistente.rows.length === 0) {
+            await client.query('ROLLBACK');
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada ou não pertence ao utilizador.' });
+        }
+        await client.query('DELETE FROM receitas_ingredientes WHERE id_receita = $1', [id_receita_a_editar]);
+        const updateQuery = `
+            UPDATE receitas 
+            SET titulo = $1, descricao = $2, url_imagem = $3, id_categoria = $4, tempo_preparo_minutos = $5, dificuldade = $6, instrucoes = $7
+            WHERE id_receita = $8;
+        `;
+        await client.query(updateQuery, [titulo, descricao, url_imagem, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, id_receita_a_editar]);
+        
+        for (const ingrediente of ingredientes) {
+            let resultadoIngrediente = await client.query('SELECT id_ingrediente FROM ingredientes WHERE nome = $1', [ingrediente.nome]);
+            let id_ingrediente;
+            if (resultadoIngrediente.rows.length === 0) {
+                const novoIngredienteResult = await client.query('INSERT INTO ingredientes (nome) VALUES ($1) RETURNING id_ingrediente', [ingrediente.nome]);
+                id_ingrediente = novoIngredienteResult.rows[0].id_ingrediente;
+            } else {
+                id_ingrediente = resultadoIngrediente.rows[0].id_ingrediente;
+            }
+            const receitaIngredienteQuery = `
+                INSERT INTO receitas_ingredientes (id_receita, id_ingrediente, quantidade, unidade_medida)
+                VALUES ($1, $2, $3, $4);
+            `;
+            await client.query(receitaIngredienteQuery, [id_receita_a_editar, id_ingrediente, ingrediente.quantidade, ingrediente.unidade_medida]);
+        }
+        await client.query('COMMIT');
+        return resposta.status(200).json({ mensagem: 'Receita atualizada com sucesso!' });
+    } catch (erro) {
+        await client.query('ROLLBACK');
+        console.error('Erro ao atualizar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    } finally {
+        client.release();
+    }
+};
+
+const deletarReceita = async (requisicao, resposta) => {
+    const { id: id_usuario_logado } = requisicao.usuario;
+    const { id: id_receita_a_deletar } = requisicao.params;
+    try {
+        const resultado = await db.query('DELETE FROM receitas WHERE id_receita = $1 AND id_usuario = $2', [id_receita_a_deletar, id_usuario_logado]);
+        if (resultado.rowCount === 0) {
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada ou não pertence ao utilizador.' });
+        }
+        return resposta.status(204).send();
+    } catch (erro) {
+        console.error('Erro ao deletar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
+const favoritarReceita = async (requisicao, resposta) => {
+    const { id: id_usuario } = requisicao.usuario;
+    const { id: id_receita } = requisicao.params;
+    try {
+        const receita = await db.query('SELECT id_receita FROM receitas WHERE id_receita = $1', [id_receita]);
+        if (receita.rowCount === 0) {
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada.' });
+        }
+        const favoritoExistente = await db.query('SELECT * FROM favoritos WHERE id_usuario = $1 AND id_receita = $2', [id_usuario, id_receita]);
+        if (favoritoExistente.rowCount > 0) {
+            return resposta.status(409).json({ mensagem: 'Receita já favoritada por este utilizador.' });
+        }
+        await db.query('INSERT INTO favoritos (id_usuario, id_receita) VALUES ($1, $2)', [id_usuario, id_receita]);
+        return resposta.status(201).json({ mensagem: 'Receita favoritada com sucesso.' });
+    } catch (erro) {
+        console.error('Erro ao favoritar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
+const desfavoritarReceita = async (requisicao, resposta) => {
+    const { id: id_usuario } = requisicao.usuario;
+    const { id: id_receita } = requisicao.params;
+    try {
+        const resultado = await db.query('DELETE FROM favoritos WHERE id_usuario = $1 AND id_receita = $2', [id_usuario, id_receita]);
+        if (resultado.rowCount === 0) {
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada na lista de favoritos.' });
+        }
+        return resposta.status(204).send();
+    } catch (erro) {
+        console.error('Erro ao desfavoritar receita:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
+const listarIngredientes = async (requisicao, resposta) => {
+    try {
+        const resultado = await db.query('SELECT id_ingrediente, nome FROM ingredientes ORDER BY nome ASC');
+        return resposta.status(200).json(resultado.rows);
+    } catch (erro) {
+        console.error('Erro ao listar ingredientes:', erro);
         return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
     }
 };
 
 module.exports = {
-    listarReceitasDoUsuario,
-    listarReceitasFavoritas,
-    listarReceitasParaPlanejador,
-    obterDadosCompletosPerfil, 
+    cadastrarReceita,
+    listarReceitas,
+    detalharReceita,
+    atualizarReceita,
+    deletarReceita,
+    favoritarReceita,
+    desfavoritarReceita,
+    listarIngredientes,
 };
