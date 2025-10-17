@@ -2,6 +2,7 @@
 import { useState, useContext } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { AuthContexto } from '../context/AuthContexto';
+import PasswordInput from '../components/PasswordInput'; // IMPORTADO
 
 // --- Ícones para a UI ---
 function IconeChave() {
@@ -20,11 +21,13 @@ function IconeSetaDireita() {
         </svg>
     );
 }
+// Os ícones de Olho não são mais necessários aqui
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [erro, setErro] = useState('');
+  // O estado showPassword agora é gerenciado pelo PasswordInput
   const { login } = useContext(AuthContexto);
   const navigate = useNavigate();
 
@@ -43,7 +46,6 @@ export default function LoginPage() {
 
   return (
     <div className="bg-creme min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
-      {/* AQUI ESTÁ A MUDANÇA: max-w-lg para um formulário maior */}
       <div className="max-w-lg w-full space-y-8 p-10 bg-white/80 backdrop-blur-sm shadow-2xl rounded-2xl border border-black/5">
         
         <div>
@@ -72,15 +74,14 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
+            {/* Bloco de Senha substituído pelo novo componente */}
             <div>
               <label htmlFor="password" className="sr-only">Senha</label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
                 autoComplete="current-password"
                 required
-                className="w-full px-4 py-3 text-verde-floresta bg-zinc-50 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracota-500 transition-shadow"
                 placeholder="Senha"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}

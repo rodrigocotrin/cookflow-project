@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
+import PasswordInput from '../components/PasswordInput'; // IMPORTADO
 
 // --- Ícones para a UI ---
 function IconeUsuarioPlus() {
@@ -20,11 +21,13 @@ function IconeSetaDireita() {
         </svg>
     );
 }
+// Os ícones de Olho não são mais necessários aqui
 
 export default function RegisterPage() {
   const [nome, setNome] = useState('');
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
+  // O estado showPassword agora é gerenciado pelo PasswordInput
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
   const navigate = useNavigate();
@@ -96,14 +99,14 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
+            {/* Bloco de Senha substituído pelo novo componente */}
             <div>
               <label htmlFor="password" className="sr-only">Senha</label>
-              <input
+              <PasswordInput
                 id="password"
                 name="password"
-                type="password"
+                autoComplete="new-password" // Correto para cadastro
                 required
-                className="w-full px-4 py-3 text-verde-floresta bg-zinc-50 border border-zinc-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-terracota-500 transition-shadow"
                 placeholder="Senha"
                 value={senha}
                 onChange={(e) => setSenha(e.target.value)}
