@@ -45,38 +45,38 @@ export default function Footer() {
   };
 
   return (
-    // Fundo creme  com borda superior sutil na cor verde-floresta 
-    <footer className="bg-creme border-t border-verde-floresta/20 pt-10 pb-8 mt-16">
+    // Fundo creme. Borda superior mais proeminente e sombra para impacto.
+    <footer className="bg-creme border-t-4 border-terracota-500 shadow-md pt-10 pb-8 mt-16 dark:bg-zinc-800 dark:border-terracota-700 dark:shadow-lg">
       <div className="container mx-auto px-6">
         
         {/* Container principal: empilhado no mobile, linha no desktop */}
-        <div className="flex flex-col md:flex-row items-center justify-between space-y-6 md:space-y-0">
+        <div className="flex flex-col md:flex-row items-center justify-between space-y-8 md:space-y-0">
           
           {/* 1. Nome (Esquerda no Desktop) */}
           <div className="text-center md:text-left">
-            <span className="font-semibold text-lg text-verde-floresta">Rodrigo Cotrin</span>
-            <p className="text-sm text-cinza-ardosia">Desenvolvedor Full-Stack</p>
+            <span className="font-extrabold text-2xl text-verde-floresta dark:text-creme">Rodrigo Cotrin</span>
+            <p className="text-sm text-cinza-ardosia dark:text-zinc-300">Desenvolvedor Full-Stack</p>
           </div>
 
           {/* 2. Links Sociais (Centro) */}
-          <nav className="flex items-center space-x-6">
-            <a href={links.email} title="E-mail" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200">
+          <nav className="flex items-center space-x-7">
+            <a href={links.email} title="E-mail" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200 dark:text-zinc-400 dark:hover:text-terracota-400">
               <IconMail className="h-6 w-6" />
             </a>
-            <a href={links.github} title="GitHub" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200">
-              <IconGitHub className="h-5 w-5" />
+            <a href={links.github} title="GitHub" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200 dark:text-zinc-400 dark:hover:text-terracota-400">
+              <IconGitHub className="h-6 w-6" /> {/* Aumentei o tamanho aqui */}
             </a>
-            <a href={links.linkedin} title="LinkedIn" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200">
-              <IconLinkedIn className="h-5 w-5" />
+            <a href={links.linkedin} title="LinkedIn" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200 dark:text-zinc-400 dark:hover:text-terracota-400">
+              <IconLinkedIn className="h-6 w-6" /> {/* Aumentei o tamanho aqui */}
             </a>
-            <a href={links.instagram} title="Instagram" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200">
+            <a href={links.instagram} title="Instagram" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200 dark:text-zinc-400 dark:hover:text-terracota-400">
               <IconInstagram className="h-6 w-6" />
             </a>
           </nav>
 
           {/* 3. Copyright & Portfolio (Direita no Desktop) */}
-          <div className="text-center md:text-right text-sm text-cinza-ardosia">
-            <a href={links.portfolio} target="_blank" rel="noopener noreferrer" className="font-medium text-verde-floresta hover:text-terracota-500 transition-colors duration-200">
+          <div className="text-center md:text-right text-sm text-cinza-ardosia dark:text-zinc-300">
+            <a href={links.portfolio} target="_blank" rel="noopener noreferrer" className="font-semibold text-verde-floresta hover:text-terracota-500 transition-colors duration-200 dark:text-creme dark:hover:text-terracota-400">
               Ver Portfólio
             </a>
             <p className="mt-1">&copy; {anoAtual} CookFlow. Todos os direitos reservados.</p>
