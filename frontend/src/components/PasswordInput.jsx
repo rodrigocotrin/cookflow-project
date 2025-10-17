@@ -1,6 +1,6 @@
 // src/components/PasswordInput.jsx
 import { useState } from 'react';
-import { IconeOlho } from './Icones/IconeOlho';
+import { IconeOlho } from './Icons/IconeOlho';
 import { IconeOlhoFechado } from './Icons/IconeOlhoFechado';
 
 /**
