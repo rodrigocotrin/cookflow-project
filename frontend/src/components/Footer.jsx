@@ -42,14 +42,14 @@ export default function Footer() {
     // Estilo inspirado 1:1 no Header
     // bg-creme, py-4, px-6, shadow-md (EXATAMENTE como o header)
     // border-t-2 (em vez de border-b-2) e border-gray-100 (EXATAMENTE como o header)
-    <footer className="bg-creme w-full py-4 px-6 shadow-md border-t-2 border-gray-100 sticky top-0 z-50">
+    <footer className="bg-creme w-full py-4 px-6 shadow-xl/20 border-t-2 border-gray-100 sticky top-0 z-50">
       
       {/* Layout principal: container, flex, justify-between (EXATAMENTE como o header) */}
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
         
         {/* 1. Nome (Esquerda) - Inspirado no Logo "CookFlow" */}
         <div className="text-center md:text-left">
-          <span className="text-2xl text-terracota-500">
+          <span className="text-xl text-terracota-500">
             Rodrigo Cotrin
           </span>
           <p className="text-sm text-cinza-ardosia">Desenvolvedor Full-Stack</p>
