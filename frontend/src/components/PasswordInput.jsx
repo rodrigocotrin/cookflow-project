@@ -1,7 +1,7 @@
 // src/components/PasswordInput.jsx
 import { useState } from 'react';
 import { IconeOlho } from './Icones/IconeOlho';
-import { IconeOlhoFechado } from './Icones/IconeOlhoFechado';
+import { IconeOlhoFechado } from './Icons/IconeOlhoFechado';
 
 /**
  * Componente de Input de Senha com funcionalidade de "mostrar/ocultar".
