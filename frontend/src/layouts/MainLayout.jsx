@@ -1,7 +1,8 @@
 // Arquivo: src/layouts/MainLayout.jsx
 import { Outlet } from 'react-router-dom';
 import Header from '../components/Header';
-import Footer from '../components/Footer'; // 1. Importe o Footer
+import Footer from '../components/Footer';
+import { Helmet } from 'react-helmet-async';
 
 export default function MainLayout() {
   return (

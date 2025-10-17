@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
-import PasswordInput from '../components/PasswordInput'; // IMPORTADO
+import PasswordInput from '../components/PasswordInput';
+import { Helmet } from 'react-helmet-async';
 
 // --- Ícones para a UI ---
 function IconeUsuarioPlus() {
@@ -126,6 +127,10 @@ export default function RegisterPage() {
               <IconeSetaDireita />
             </button>
           </div>
+
+          <Helmet>
+        <title>Cookflow - Crie sua Conta</title>
+        </Helmet>
           
           <div className="text-sm text-center">
             <p className="text-cinza-ardosia">
