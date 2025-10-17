@@ -42,7 +42,7 @@ export default function Footer() {
     // Estilo inspirado 1:1 no Header
     // bg-creme, py-4, px-6, shadow-md (EXATAMENTE como o header)
     // border-t-2 (em vez de border-b-2) e border-gray-100 (EXATAMENTE como o header)
-    <footer className="bg-creme w-full py-4 px-6 shadow-md border-t-2 border-gray-100 mt-16 dark:bg-zinc-800 dark:border-zinc-700">
+    <footer className="bg-creme w-full py-4 px-6 shadow-md border-t-2 border-gray-100 mt-16">
       
       {/* Layout principal: container, flex, justify-between (EXATAMENTE como o header) */}
       <div className="container mx-auto flex flex-col md:flex-row justify-between items-center space-y-4 md:space-y-0">
@@ -52,21 +52,21 @@ export default function Footer() {
           <span className="text-2xl font-bold text-terracota-500">
             Rodrigo Cotrin
           </span>
-          <p className="text-sm text-cinza-ardosia dark:text-zinc-400">Desenvolvedor Full-Stack</p>
+          <p className="text-sm text-cinza-ardosia">Desenvolvedor Full-Stack</p>
         </div>
 
         {/* 2. Links Sociais (Centro) - Ícones com hover sutil */}
         <nav className="flex items-center space-x-6">
-          <a href={links.email} title="E-mail" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200 dark:text-zinc-400 dark:hover:text-terracota-400">
+          <a href={links.email} title="E-mail" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200">
             <IconMail className="h-6 w-6" />
           </a>
-          <a href={links.github} title="GitHub" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200 dark:text-zinc-400 dark:hover:text-terracota-400">
+          <a href={links.github} title="GitHub" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200">
             <IconGitHub className="h-5 w-5" />
           </a>
-          <a href={links.linkedin} title="LinkedIn" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200 dark:text-zinc-400 dark:hover:text-terracota-400">
+          <a href={links.linkedin} title="LinkedIn" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200">
             <IconLinkedIn className="h-5 w-5" />
           </a>
-          <a href={links.instagram} title="Instagram" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200 dark:text-zinc-400 dark:hover:text-terracota-400">
+          <a href={links.instagram} title="Instagram" target="_blank" rel="noopener noreferrer" className="text-cinza-ardosia hover:text-terracota-500 transition-colors duration-200">
             <IconInstagram className="h-6 w-6" />
           </a>
         </nav>
@@ -78,11 +78,11 @@ export default function Footer() {
               target="_blank" 
               rel="noopener noreferrer" 
               // Estilo EXATO do link "Login" do header
-              className="font-semibold text-verde-floresta hover:text-terracota-500 transition-colors dark:text-creme dark:hover:text-terracota-400"
+              className="font-semibold text-verde-floresta hover:text-terracota-500 transition-colors"
             >
               Ver Portfólio
             </a>
-          <p className="text-sm text-cinza-ardosia mt-1 dark:text-zinc-400">
+          <p className="text-sm text-cinza-ardosia mt-1">
             &copy; {anoAtual} CookFlow. Todos os direitos reservados.
           </p>
         </div>
