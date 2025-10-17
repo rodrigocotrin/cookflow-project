@@ -29,6 +29,13 @@ if (process.env.POSTGRES_URL) {
     });
 }
 
-// Exporta o objeto pool completo.
-// Ele contém os métodos .query() e .connect(), tornando-o compatível com todos os controladores.
-module.exports = pool;
+/**
+ * Exporta um objeto que suporta ambos os padrões de uso:
+ * 1. db.query(): Para executar queries simples e diretas.
+ * 2. db.pool: Para ter acesso ao pool completo e gerenciar transações
+ * manualmente com .connect(), .release(), BEGIN, COMMIT, ROLLBACK.
+ */
+module.exports = {
+    query: (text, params) => pool.query(text, params),
+    pool: pool 
+};
