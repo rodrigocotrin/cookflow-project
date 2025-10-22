@@ -35,6 +35,7 @@ export default function HomePage() {
     async function carregarReceitas() {
       try {
         const resposta = await api.get('/receitas');
+        console.log('Resposta da API (resposta.data):', resposta.data);
         setReceitas(resposta.data);
       } catch (erro) {
         console.error("Erro ao buscar receitas:", erro);
