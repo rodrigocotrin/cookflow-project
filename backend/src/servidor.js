@@ -1,4 +1,4 @@
-// Arquivo: backend/src/servidor.js (VERSÃO COM CORREÇÃO DEFINITIVA DE CORS)
+// Arquivo: backend/src/servidor.js (VERSÃO FINAL CORRIGIDA)
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -14,30 +14,20 @@ const app = express();
 
 // --- Configuração de CORS Definitiva e Robusta ---
 const whitelist = [
-    process.env.FRONTEND_URL,       // (ex: 'https://cookflow.rodrigocotrin.com')
-    process.env.FRONTEND_URL_LOCAL  // (ex: 'http://localhost:5173')
+    'https://cookflow.rodrigocotrin.com',  // Adição manual do seu domínio de produção
+    process.env.FRONTEND_URL,             // Mantém a var de env (caso precise)
+    process.env.FRONTEND_URL_LOCAL        // Mantém o local (ex: 'http://localhost:5173')
 ];
 
 const corsOptions = {
     origin: (origin, callback) => {
-        // Padrão 1: Aceita domínios de preview/produção antigos da Vercel
+        // Padrão antigo da Vercel (mantemos, não quebra)
         const vercelPattern = /^https:\/\/cookflow-project(-[a-z0-9-]+)?\.vercel\.app$/;
 
-        // --- ESTA É A NOVA LINHA ---
-        // Padrão 2: Aceita SEU domínio de produção (ex: cookflow.rodrigocotrin.com)
-        const productionPattern = /^https://cookflow\.rodrigocotrin\.com$/;
-        
-        // Permite a requisição se a origem:
-        // 1. Estiver na whitelist estática (variáveis de ambiente).
-        // 2. Corresponder ao padrão antigo da Vercel.
-        // 3. Corresponder ao SEU NOVO PADRÃO DE PRODUÇÃO.
-        // 4. Não tiver origem (ex: Postman, Insomnia).
-        if (
-            whitelist.includes(origin) || 
-            vercelPattern.test(origin) ||
-            productionPattern.test(origin) ||  // <<< ADIÇÃO DA NOVA REGRA
-            !origin
-        ) {
+        // A lógica de verificação:
+        // 1. O 'origin' (https://cookflow.rodrigocotrin.com) vai passar no 'whitelist.includes(origin)'
+        // 2. Não vai mais dar erro de CORS
+        if (whitelist.includes(origin) || vercelPattern.test(origin) || !origin) {
             callback(null, true);
         } else {
             callback(new Error('Acesso não permitido pela política de CORS'));
