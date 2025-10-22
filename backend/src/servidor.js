@@ -14,6 +14,7 @@ const app = express();
 
 // --- Configuração de CORS Definitiva e Robusta ---
 const whitelist = [
+    'https://cookflow.rodrigocotrin.com',
     process.env.FRONTEND_URL,       // Sua URL de produção (ex: 'https://cookflow-project.vercel.app')
     process.env.FRONTEND_URL_LOCAL  // Sua URL local (ex: 'http://localhost:5173')
 ];
