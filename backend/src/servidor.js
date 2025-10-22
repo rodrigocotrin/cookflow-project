@@ -14,22 +14,30 @@ const app = express();
 
 // --- Configuração de CORS Definitiva e Robusta ---
 const whitelist = [
-    'https://cookflow.rodrigocotrin.com',
-    process.env.FRONTEND_URL,       // Sua URL de produção (ex: 'https://cookflow-project.vercel.app')
-    process.env.FRONTEND_URL_LOCAL  // Sua URL local (ex: 'http://localhost:5173')
+    process.env.FRONTEND_URL,       // (ex: 'https://cookflow.rodrigocotrin.com')
+    process.env.FRONTEND_URL_LOCAL  // (ex: 'http://localhost:5173')
 ];
 
 const corsOptions = {
     origin: (origin, callback) => {
-        // Expressão Regular para validar as URLs de preview da Vercel para este projeto.
-        // Aceita 'https://cookflow-project.vercel.app' e 'https://cookflow-project-QUALQUERCOISA.vercel.app'
+        // Padrão 1: Aceita domínios de preview/produção antigos da Vercel
         const vercelPattern = /^https:\/\/cookflow-project(-[a-z0-9-]+)?\.vercel\.app$/;
 
+        // --- ESTA É A NOVA LINHA ---
+        // Padrão 2: Aceita SEU domínio de produção (ex: cookflow.rodrigocotrin.com)
+        const productionPattern = /^https://cookflow\.rodrigocotrin\.com$/;
+        
         // Permite a requisição se a origem:
-        // 1. Estiver na whitelist estática (produção, local).
-        // 2. Corresponder ao padrão de preview/produção da Vercel.
-        // 3. Não tiver origem (ex: Postman, Insomnia).
-        if (whitelist.includes(origin) || vercelPattern.test(origin) || !origin) {
+        // 1. Estiver na whitelist estática (variáveis de ambiente).
+        // 2. Corresponder ao padrão antigo da Vercel.
+        // 3. Corresponder ao SEU NOVO PADRÃO DE PRODUÇÃO.
+        // 4. Não tiver origem (ex: Postman, Insomnia).
+        if (
+            whitelist.includes(origin) || 
+            vercelPattern.test(origin) ||
+            productionPattern.test(origin) ||  // <<< ADIÇÃO DA NOVA REGRA
+            !origin
+        ) {
             callback(null, true);
         } else {
             callback(new Error('Acesso não permitido pela política de CORS'));
