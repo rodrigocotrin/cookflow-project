@@ -27,22 +27,6 @@ export default function HomePage() {
   const { assinado } = useContext(AuthContexto);
   const [adicionandoId, setAdicionandoId] = useState(null);
 
-<<<<<<< Updated upstream
-  useEffect(() => {
-    async function carregarReceitas() {
-      try {
-        const resposta = await api.get('/receitas');
-        console.log('Resposta da API (resposta.data):', resposta.data);
-        setReceitas(resposta.data);
-      } catch (erro) {
-        console.error("Erro ao buscar receitas:", erro);
-      } finally {
-        setLoading(false);
-      }
-    }
-    carregarReceitas();
-  }, []);
-=======
   const carregarReceitas = async () => {
     try {
       setLoading(true);
@@ -50,7 +34,6 @@ export default function HomePage() {
       if (categoriaSelecionada) params.categoria = categoriaSelecionada;
       if (dificuldadeSelecionada) params.dificuldade = dificuldadeSelecionada;
       if (ordenacao) params.ordenar = ordenacao;
->>>>>>> Stashed changes
 
       const resposta = await api.get('/receitas', { params });
       setReceitas(resposta.data);
