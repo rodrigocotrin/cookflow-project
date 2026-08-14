@@ -81,6 +81,7 @@ const listarReceitas = async (requisicao, resposta) => {
                 r.dificuldade, 
                 r.tempo_preparo_minutos,
                 r.url_imagem,
+                r.data_criacao,
                 c.nome AS nome_categoria, 
                 u.nome AS nome_usuario,
                 COALESCE(ROUND(AVG(a.nota), 1), 0) AS media_avaliacoes,
@@ -118,7 +119,7 @@ const listarReceitas = async (requisicao, resposta) => {
             queryBase += ` WHERE ${condicoes.join(' AND ')}`;
         }
         
-        queryBase += ` GROUP BY r.id_receita, u.nome, c.nome `;
+        queryBase += ` GROUP BY r.id_receita, r.titulo, r.descricao, r.dificuldade, r.tempo_preparo_minutos, r.url_imagem, r.data_criacao, u.nome, c.nome `;
 
         if (ordenar === 'mais_avaliadas') {
             queryBase += ` ORDER BY media_avaliacoes DESC, total_avaliacoes DESC, r.data_criacao DESC; `;
@@ -132,7 +133,7 @@ const listarReceitas = async (requisicao, resposta) => {
         return resposta.status(200).json(resultado.rows);
     } catch (erro) {
         console.error('Erro ao listar receitas:', erro);
-        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+        return resposta.status(500).json({ mensagem: 'Erro ao listar receitas.', detalhe: erro.message });
     }
 };
 

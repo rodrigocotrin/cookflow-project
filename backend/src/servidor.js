@@ -48,7 +48,7 @@ app.use((req, res, next) => {
 // --- Servir Arquivos Estáticos de Uploads ---
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
-// --- Rotas Públicas de Verificação de Saúde ---
+// --- Rotas Públicas de Verificação de Saúde e Diagnóstico ---
 app.get('/', (requisicao, resposta) => {
     resposta.json({
         status: 'online',
@@ -58,6 +58,35 @@ app.get('/', (requisicao, resposta) => {
 
 app.get('/api', (requisicao, resposta) => {
     resposta.json({ mensagem: 'API do CookFlow está funcionando corretamente!' });
+});
+
+app.get('/api/status-banco', async (requisicao, resposta) => {
+    try {
+        const db = require('./config/bd');
+        const res = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
+        const tabelas = res.rows.map(r => r.table_name);
+        
+        let contagemReceitas = 0;
+        if (tabelas.includes('receitas')) {
+            const rCount = await db.query("SELECT COUNT(*) FROM receitas");
+            contagemReceitas = parseInt(rCount.rows[0].count, 10);
+        }
+
+        resposta.json({
+            banco_conectado: true,
+            total_tabelas: tabelas.length,
+            tabelas_existentes: tabelas,
+            total_receitas: contagemReceitas,
+            ambiente: process.env.NODE_ENV || 'development'
+        });
+    } catch (erro) {
+        console.error('Erro no diagnóstico de banco:', erro);
+        resposta.status(500).json({
+            banco_conectado: false,
+            erro: erro.message,
+            codigo: erro.code
+        });
+    }
 });
 
 // --- Registro das Rotas da Aplicação ---

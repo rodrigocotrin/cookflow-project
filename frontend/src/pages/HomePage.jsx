@@ -39,7 +39,10 @@ export default function HomePage() {
       setReceitas(resposta.data);
     } catch (erro) {
       console.error("Erro ao buscar receitas:", erro);
-      toast.error("Não foi possível carregar as receitas.");
+      if (erro.response?.data) {
+        console.error("Detalhes do erro retornado pelo servidor:", erro.response.data);
+      }
+      toast.error(erro.response?.data?.detalhe || erro.response?.data?.mensagem || "Não foi possível carregar as receitas.");
     } finally {
       setLoading(false);
     }
