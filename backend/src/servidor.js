@@ -61,6 +61,15 @@ app.get('/api', (requisicao, resposta) => {
 });
 
 app.get('/api/status-banco', async (requisicao, resposta) => {
+    const varsEncontradas = {
+        POSTGRES_URL: Boolean(process.env.POSTGRES_URL),
+        DATABASE_URL: Boolean(process.env.DATABASE_URL),
+        POSTGRES_PRISMA_URL: Boolean(process.env.POSTGRES_PRISMA_URL),
+        POSTGRES_URL_NON_POOLING: Boolean(process.env.POSTGRES_URL_NON_POOLING),
+        DB_HOST: process.env.DB_HOST || 'não definido',
+        NODE_ENV: process.env.NODE_ENV || 'não definido'
+    };
+
     try {
         const db = require('./config/bd');
         const res = await db.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
@@ -72,19 +81,24 @@ app.get('/api/status-banco', async (requisicao, resposta) => {
             contagemReceitas = parseInt(rCount.rows[0].count, 10);
         }
 
-        resposta.json({
+        return resposta.status(200).json({
             banco_conectado: true,
             total_tabelas: tabelas.length,
             tabelas_existentes: tabelas,
             total_receitas: contagemReceitas,
-            ambiente: process.env.NODE_ENV || 'development'
+            variaveis_de_ambiente: varsEncontradas
         });
     } catch (erro) {
         console.error('Erro no diagnóstico de banco:', erro);
-        resposta.status(500).json({
+        return resposta.status(200).json({
             banco_conectado: false,
-            erro: erro.message,
-            codigo: erro.code
+            mensagem: 'Não foi possível conectar ao banco de dados.',
+            erro_detalhado: erro.message,
+            codigo_erro: erro.code,
+            variaveis_de_ambiente: varsEncontradas,
+            solucao: (!varsEncontradas.POSTGRES_URL && !varsEncontradas.DATABASE_URL)
+                ? 'Nenhuma URL de conexão (POSTGRES_URL ou DATABASE_URL) foi encontrada nas Environment Variables da Vercel. Adicione a connection string do Neon nas configurações do projeto na Vercel.'
+                : 'A URL de conexão foi encontrada, mas o banco recusou a conexão. Verifique no Neon se a senha está correta ou se o banco está ativo.'
         });
     }
 });
