@@ -46,7 +46,10 @@ app.use((req, res, next) => {
 });
 
 // --- Servir Arquivos Estáticos de Uploads ---
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+const uploadDirStatic = process.env.VERCEL
+    ? path.join('/tmp', 'uploads')
+    : path.join(__dirname, '../uploads');
+app.use('/uploads', express.static(uploadDirStatic));
 
 // --- Rotas Públicas de Verificação de Saúde e Diagnóstico ---
 app.get('/', (requisicao, resposta) => {
@@ -67,7 +70,8 @@ app.get('/api/status-banco', async (requisicao, resposta) => {
         POSTGRES_PRISMA_URL: Boolean(process.env.POSTGRES_PRISMA_URL),
         POSTGRES_URL_NON_POOLING: Boolean(process.env.POSTGRES_URL_NON_POOLING),
         DB_HOST: process.env.DB_HOST || 'não definido',
-        NODE_ENV: process.env.NODE_ENV || 'não definido'
+        NODE_ENV: process.env.NODE_ENV || 'não definido',
+        VERCEL: Boolean(process.env.VERCEL)
     };
 
     try {
@@ -120,10 +124,9 @@ app.use((err, req, res, next) => {
     });
 });
 
-const PORT = process.env.PORT || 3001;
-
-// Inicializa o servidor localmente se não for ambiente de testes
-if (process.env.NODE_ENV !== 'test') {
+// Inicializa o servidor localmente apenas fora da Vercel
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'test') {
+    const PORT = process.env.PORT || 3001;
     app.listen(PORT, () => {
         console.log(`🚀 Servidor CookFlow rodando com sucesso na porta ${PORT}`);
     });

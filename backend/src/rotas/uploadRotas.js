@@ -7,15 +7,27 @@ const verificarLogin = require('../intermediarios/autenticacao');
 
 const rotas = express.Router();
 
-// Garante que o diretório de uploads existe
-const uploadDir = path.join(__dirname, '../../uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+// Garante compatibilidade do diretório de uploads tanto local quanto na Vercel (onde apenas /tmp é gravável)
+const uploadDir = process.env.VERCEL
+    ? path.join('/tmp', 'uploads')
+    : path.join(__dirname, '../../uploads');
+
+try {
+    if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+    }
+} catch (e) {
+    console.warn('Aviso: Sistema de arquivos somente leitura ou diretório inacessível:', e.message);
 }
 
-// Configuração do armazenamento do Multer
+// Configuração do armazenamento do Multer com fallback seguro
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
+        try {
+            if (!fs.existsSync(uploadDir)) {
+                fs.mkdirSync(uploadDir, { recursive: true });
+            }
+        } catch (err) {}
         cb(null, uploadDir);
     },
     filename: (req, file, cb) => {
