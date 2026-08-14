@@ -9,6 +9,7 @@ const rotas = express.Router();
 rotas.get('/receitas', receitaControlador.listarReceitas);
 rotas.get('/receitas/:id', receitaControlador.detalharReceita);
 rotas.get('/ingredientes', receitaControlador.listarIngredientes); 
+rotas.get('/categorias', receitaControlador.listarCategorias); 
 
 // Rotas protegidas
 rotas.post('/receitas', verificarLogin, receitaControlador.cadastrarReceita);

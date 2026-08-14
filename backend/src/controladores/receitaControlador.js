@@ -95,23 +95,25 @@ const listarReceitas = async (requisicao, resposta) => {
         const valores = [];
         let contadorParam = 1;
 
-        if (busca) {
-            condicoes.push(`(r.titulo ILIKE $${contadorParam} OR r.id_receita IN (
+        if (busca && busca.trim() !== '') {
+            condicoes.push(`(r.titulo ILIKE $${contadorParam} OR r.descricao ILIKE $${contadorParam} OR r.id_receita IN (
                 SELECT ri.id_receita FROM receitas_ingredientes ri
                 JOIN ingredientes i ON ri.id_ingrediente = i.id_ingrediente
                 WHERE i.nome ILIKE $${contadorParam}
             ))`);
-            valores.push(`%${busca}%`);
+            valores.push(`%${busca.trim()}%`);
             contadorParam++;
         }
-        if (categoria) {
-            condicoes.push(`(c.nome ILIKE $${contadorParam} OR c.id_categoria::text = $${contadorParam})`);
-            valores.push(categoria);
-            contadorParam++;
+        if (categoria && categoria.trim() !== '') {
+            const catLimpa = categoria.trim();
+            const catSemPlural = catLimpa.replace(/s$/i, '');
+            condicoes.push(`(c.nome ILIKE $${contadorParam} OR c.nome ILIKE $${contadorParam + 1} OR c.id_categoria::text = $${contadorParam + 2})`);
+            valores.push(`%${catLimpa}%`, `%${catSemPlural}%`, catLimpa);
+            contadorParam += 3;
         }
-        if (dificuldade) {
-            condicoes.push(`r.dificuldade = $${contadorParam}`);
-            valores.push(dificuldade);
+        if (dificuldade && dificuldade.trim() !== '') {
+            condicoes.push(`r.dificuldade ILIKE $${contadorParam}`);
+            valores.push(`%${dificuldade.trim()}%`);
             contadorParam++;
         }
 
@@ -293,6 +295,16 @@ const listarIngredientes = async (requisicao, resposta) => {
     }
 };
 
+const listarCategorias = async (requisicao, resposta) => {
+    try {
+        const resultado = await db.query('SELECT id_categoria, nome FROM categorias ORDER BY nome ASC');
+        return resposta.status(200).json(resultado.rows);
+    } catch (erro) {
+        console.error('Erro ao listar categorias:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno ao buscar categorias.' });
+    }
+};
+
 module.exports = {
     cadastrarReceita,
     listarReceitas,
@@ -302,4 +314,5 @@ module.exports = {
     favoritarReceita,
     desfavoritarReceita,
     listarIngredientes,
+    listarCategorias,
 };

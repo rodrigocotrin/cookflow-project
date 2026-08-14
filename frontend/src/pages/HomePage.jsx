@@ -7,25 +7,44 @@ import { AuthContexto } from '../context/AuthContexto';
 import { toast } from 'react-toastify';
 import { Helmet } from 'react-helmet-async';
 
-const CATEGORIAS_POPULARES = [
-  { id: '', nome: 'Todas', icone: '🍽️' },
-  { id: 'Massas', nome: 'Massas', icone: '🍝' },
-  { id: 'Sobremesas', nome: 'Sobremesas', icone: '🍰' },
-  { id: 'Carnes', nome: 'Carnes', icone: '🥩' },
-  { id: 'Lanches', nome: 'Lanches', icone: '🍔' },
-  { id: 'Vegetariano', nome: 'Vegetariano', icone: '🥗' },
-  { id: 'Bebidas', nome: 'Bebidas', icone: '🍹' },
-  { id: 'Peixes e Frutos do Mar', nome: 'Peixes & Frutos do Mar', icone: '🐟' },
-];
+const ICONES_CATEGORIAS = {
+  'Sobremesa': '🍰',
+  'Sobremesas': '🍰',
+  'Prato Principal': '🍲',
+  'Pratos Principais': '🍲',
+  'Lanche': '🍔',
+  'Lanches': '🍔',
+  'Vegano': '🥗',
+  'Vegetariano': '🥗',
+  'Massas': '🍝',
+  'Carnes': '🥩',
+  'Bebidas': '🍹',
+  'Peixes e Frutos do Mar': '🐟',
+};
 
 export default function HomePage() {
   const [receitas, setReceitas] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
   const [categoriaSelecionada, setCategoriaSelecionada] = useState('');
   const [dificuldadeSelecionada, setDificuldadeSelecionada] = useState('');
   const [ordenacao, setOrdenacao] = useState('recentes');
   const { assinado } = useContext(AuthContexto);
   const [adicionandoId, setAdicionandoId] = useState(null);
+
+  useEffect(() => {
+    async function carregarCategorias() {
+      try {
+        const resp = await api.get('/categorias');
+        if (resp.data && Array.isArray(resp.data)) {
+          setCategorias(resp.data);
+        }
+      } catch (err) {
+        console.warn('Categorias locais em uso');
+      }
+    }
+    carregarCategorias();
+  }, []);
 
   const carregarReceitas = async () => {
     try {
@@ -151,20 +170,43 @@ export default function HomePage() {
         </div>
 
         <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-none no-scrollbar -mx-4 px-4 sm:mx-0 sm:px-0">
-          {CATEGORIAS_POPULARES.map((cat) => {
-            const ativa = categoriaSelecionada === cat.id;
+          <button
+            onClick={() => setCategoriaSelecionada('')}
+            className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all duration-200 ${
+              categoriaSelecionada === ''
+                ? 'bg-verde-floresta text-white shadow-card scale-105'
+                : 'bg-white/80 backdrop-blur-sm text-cinza-ardosia border border-zinc-200/80 hover:border-terracota-500/40 hover:bg-white hover:text-verde-floresta'
+            }`}
+          >
+            <span className="text-lg">🍽️</span>
+            <span>Todas</span>
+          </button>
+
+          {(categorias.length > 0
+            ? categorias
+            : [
+                { id_categoria: 1, nome: 'Sobremesa' },
+                { id_categoria: 2, nome: 'Prato Principal' },
+                { id_categoria: 3, nome: 'Lanche' },
+                { id_categoria: 4, nome: 'Vegano' }
+              ]
+          ).map((cat) => {
+            const nomeCat = cat.nome;
+            const ativa = categoriaSelecionada === nomeCat || categoriaSelecionada === String(cat.id_categoria);
+            const icone = ICONES_CATEGORIAS[nomeCat] || '🍳';
+
             return (
               <button
-                key={cat.id || 'todas'}
-                onClick={() => setCategoriaSelecionada(cat.id)}
+                key={cat.id_categoria || nomeCat}
+                onClick={() => setCategoriaSelecionada(nomeCat)}
                 className={`flex-shrink-0 flex items-center gap-2 px-5 py-3 rounded-2xl font-bold text-sm transition-all duration-200 ${
                   ativa
                     ? 'bg-verde-floresta text-white shadow-card scale-105'
                     : 'bg-white/80 backdrop-blur-sm text-cinza-ardosia border border-zinc-200/80 hover:border-terracota-500/40 hover:bg-white hover:text-verde-floresta'
                 }`}
               >
-                <span className="text-lg">{cat.icone}</span>
-                <span>{cat.nome}</span>
+                <span className="text-lg">{icone}</span>
+                <span>{nomeCat}</span>
               </button>
             );
           })}

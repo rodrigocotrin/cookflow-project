@@ -21,16 +21,19 @@ export default function ReceitaDetalhePage() {
   useEffect(() => {
     async function carregarDados() {
       try {
-        const promessas = [api.get(`/receitas/${id}`)];
-        if (assinado) {
-          promessas.push(api.get('/perfil/favoritos'));
-        }
-        const [respostaReceita, respostaFavoritos] = await Promise.all(promessas);
+        const respostaReceita = await api.get(`/receitas/${id}`);
         setReceita(respostaReceita.data);
-        if (respostaFavoritos) {
-          const favoritos = respostaFavoritos.data;
-          const favoritoEncontrado = favoritos.some(fav => fav.id_receita === parseInt(id, 10));
-          setEFavorito(favoritoEncontrado);
+
+        if (assinado) {
+          try {
+            const respostaFavoritos = await api.get('/perfil/favoritos');
+            if (respostaFavoritos.data && Array.isArray(respostaFavoritos.data)) {
+              const favoritoEncontrado = respostaFavoritos.data.some(fav => fav.id_receita === parseInt(id, 10));
+              setEFavorito(favoritoEncontrado);
+            }
+          } catch (favErr) {
+            console.warn("Não foi possível verificar favoritos:", favErr);
+          }
         }
       } catch (erro) {
         console.error("Erro ao buscar dados da receita:", erro);

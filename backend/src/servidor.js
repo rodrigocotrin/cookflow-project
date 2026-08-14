@@ -52,6 +52,8 @@ const uploadDirStatic = process.env.VERCEL
 app.use('/uploads', express.static(uploadDirStatic));
 
 // --- Rotas Públicas de Verificação de Saúde e Diagnóstico ---
+app.get('/favicon.ico', (req, res) => res.status(204).end());
+
 app.get('/', (requisicao, resposta) => {
     resposta.json({
         status: 'online',

@@ -1,28 +1,83 @@
 // Arquivo: frontend/src/components/ImageUpload.jsx
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import api, { resolverUrlImagem } from '../services/api';
 import { toast } from 'react-toastify';
+
+const SUGESTOES_IMAGEM_FOOD = [
+  { nome: 'Massa Artesanal', url: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281230?auto=format&fit=crop&w=800&q=80' },
+  { nome: 'Sobremesa / Bolo', url: 'https://images.unsplash.com/photo-1578985545062-69928b1d9587?auto=format&fit=crop&w=800&q=80' },
+  { nome: 'Grelhado / Carne', url: 'https://images.unsplash.com/photo-1544025162-d76694265947?auto=format&fit=crop&w=800&q=80' },
+  { nome: 'Salada / Saudável', url: 'https://images.unsplash.com/photo-1512621776951-a57141f2eefd?auto=format&fit=crop&w=800&q=80' },
+];
 
 export default function ImageUpload({ valorAtual, aoMudarImagem, label = "Foto da Receita" }) {
   const [modo, setModo] = useState(valorAtual && valorAtual.startsWith('http') && !valorAtual.includes('localhost') && !valorAtual.includes('/uploads/') ? 'url' : 'arquivo');
   const [urlManual, setUrlManual] = useState(valorAtual || '');
   const [uploadando, setUploadando] = useState(false);
   const [arrastando, setArrastando] = useState(false);
+  const [statusValidacao, setStatusValidacao] = useState(null); // 'validando' | 'valida' | 'invalida'
+  const [motivoInvalido, setMotivoInvalido] = useState('');
   const fileInputRef = useRef(null);
+
+  // Valida integridade e dimensões reais de qualquer imagem carregada
+  const validarImagemReal = (fonteImagem) => {
+    return new Promise((resolve) => {
+      setStatusValidacao('validando');
+      const img = new Image();
+      img.onload = () => {
+        if (img.width < 150 || img.height < 150) {
+          setStatusValidacao('invalida');
+          setMotivoInvalido('A resolução da imagem é muito baixa (mínimo de 150x150 pixels).');
+          resolve(false);
+        } else {
+          setStatusValidacao('valida');
+          setMotivoInvalido('');
+          resolve(true);
+        }
+      };
+      img.onerror = () => {
+        setStatusValidacao('invalida');
+        setMotivoInvalido('Não foi possível carregar a imagem. Verifique se o arquivo ou link está correto.');
+        resolve(false);
+      };
+      img.src = resolverUrlImagem(fonteImagem);
+    });
+  };
+
+  useEffect(() => {
+    if (valorAtual) {
+      validarImagemReal(valorAtual);
+    } else {
+      setStatusValidacao(null);
+      setMotivoInvalido('');
+    }
+  }, [valorAtual]);
 
   const handleUploadArquivo = async (arquivo) => {
     if (!arquivo) return;
 
-    // Validações no cliente
-    if (!arquivo.type.startsWith('image/')) {
-      toast.error('Por favor, selecione um arquivo de imagem válido (JPG, PNG, WEBP).');
+    // Barreira 1: Tipo MIME
+    const tiposValidos = ['image/jpeg', 'image/png', 'image/webp', 'image/jpg', 'image/gif', 'image/avif'];
+    if (!tiposValidos.includes(arquivo.type.toLowerCase())) {
+      toast.error('Barreira de Segurança: Selecione apenas arquivos de imagem reais (JPG, PNG, WEBP, GIF).');
       return;
     }
 
+    // Barreira 2: Tamanho máximo (5MB)
     if (arquivo.size > 5 * 1024 * 1024) {
-      toast.error('O tamanho da imagem não pode ultrapassar 5MB.');
+      toast.error('O tamanho da foto não pode exceder 5MB.');
       return;
     }
+
+    // Barreira 3: Validar integridade e dimensões antes do upload
+    const objectUrl = URL.createObjectURL(arquivo);
+    const imagemValida = await validarImagemReal(objectUrl);
+    if (!imagemValida) {
+      toast.error(motivoInvalido || 'O arquivo selecionado não é uma imagem válida.');
+      URL.revokeObjectURL(objectUrl);
+      return;
+    }
+    URL.revokeObjectURL(objectUrl);
 
     const formData = new FormData();
     formData.append('imagem', arquivo);
@@ -38,12 +93,33 @@ export default function ImageUpload({ valorAtual, aoMudarImagem, label = "Foto d
       const urlGerada = resposta.data.url;
       aoMudarImagem(urlGerada);
       setUrlManual(urlGerada);
-      toast.success('Imagem enviada com sucesso!');
+      toast.success('Foto verificada e enviada com sucesso! ✨');
     } catch (erro) {
       console.error('Erro no upload de imagem:', erro);
-      toast.error(erro.response?.data?.mensagem || 'Falha ao enviar a imagem. Tente novamente.');
+      toast.error(erro.response?.data?.mensagem || 'Falha ao processar a foto. Use a opção de colar link web caso persista.');
     } finally {
       setUploadando(false);
+    }
+  };
+
+  const handleAplicarUrlManual = async (url) => {
+    setUrlManual(url);
+    if (!url || url.trim() === '') {
+      aoMudarImagem('');
+      setStatusValidacao(null);
+      return;
+    }
+
+    const urlTrim = url.trim();
+    if (!urlTrim.startsWith('http://') && !urlTrim.startsWith('https://') && !urlTrim.startsWith('/uploads/')) {
+      setStatusValidacao('invalida');
+      setMotivoInvalido('O link precisa começar com https://');
+      return;
+    }
+
+    const valida = await validarImagemReal(urlTrim);
+    if (valida) {
+      aoMudarImagem(urlTrim);
     }
   };
 
@@ -69,6 +145,8 @@ export default function ImageUpload({ valorAtual, aoMudarImagem, label = "Foto d
     e.stopPropagation();
     aoMudarImagem('');
     setUrlManual('');
+    setStatusValidacao(null);
+    setMotivoInvalido('');
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
@@ -76,37 +154,52 @@ export default function ImageUpload({ valorAtual, aoMudarImagem, label = "Foto d
 
   return (
     <div className="space-y-3">
-      <div className="flex justify-between items-center">
-        <label className="block text-sm font-semibold text-verde-floresta tracking-wide">
+      <div className="flex justify-between items-center flex-wrap gap-2">
+        <label className="block text-sm font-bold text-verde-floresta tracking-wide">
           {label} <span className="text-terracota-500">*</span>
         </label>
 
         {/* Alternância de Modo */}
-        <div className="flex bg-creme-200/80 p-1 rounded-lg text-xs font-semibold">
+        <div className="flex bg-creme-200/80 p-1 rounded-xl text-xs font-semibold">
           <button
             type="button"
             onClick={() => setModo('arquivo')}
-            className={`px-3 py-1 rounded-md transition-all ${
+            className={`px-3 py-1 rounded-lg transition-all ${
               modo === 'arquivo'
                 ? 'bg-white text-terracota-600 shadow-sm'
                 : 'text-cinza-ardosia hover:text-verde-floresta'
             }`}
           >
-            Fazer Upload
+            📁 Fazer Upload
           </button>
           <button
             type="button"
             onClick={() => setModo('url')}
-            className={`px-3 py-1 rounded-md transition-all ${
+            className={`px-3 py-1 rounded-lg transition-all ${
               modo === 'url'
                 ? 'bg-white text-terracota-600 shadow-sm'
                 : 'text-cinza-ardosia hover:text-verde-floresta'
             }`}
           >
-            Colar Link Web
+            🔗 Colar Link Web
           </button>
         </div>
       </div>
+
+      {/* Indicador de Barreira de Validação */}
+      {statusValidacao === 'valida' && (
+        <div className="flex items-center gap-1.5 text-xs text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1.5 rounded-xl font-medium">
+          <span>✅</span>
+          <span>Foto aprovada pelo sistema de verificação</span>
+        </div>
+      )}
+
+      {statusValidacao === 'invalida' && motivoInvalido && (
+        <div className="flex items-center gap-1.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 px-3 py-1.5 rounded-xl font-medium">
+          <span>⚠️</span>
+          <span>{motivoInvalido}</span>
+        </div>
+      )}
 
       {modo === 'arquivo' ? (
         <div
@@ -125,7 +218,7 @@ export default function ImageUpload({ valorAtual, aoMudarImagem, label = "Foto d
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/jpg,image/gif"
+            accept="image/jpeg,image/png,image/webp,image/jpg,image/gif,image/avif"
             onChange={(e) => e.target.files?.[0] && handleUploadArquivo(e.target.files[0])}
             className="hidden"
           />
@@ -134,24 +227,24 @@ export default function ImageUpload({ valorAtual, aoMudarImagem, label = "Foto d
             <div className="flex flex-col items-center gap-3 p-6 text-center">
               <div className="w-10 h-10 border-4 border-terracota-500 border-t-transparent rounded-full animate-spin"></div>
               <p className="text-sm font-semibold text-verde-floresta animate-pulse">
-                Enviando imagem para o servidor...
+                Processando e validando imagem...
               </p>
             </div>
           ) : valorAtual ? (
             <div className="relative w-full h-full group">
               <img
                 src={previewSrc}
-                alt="Pré-visualização"
+                alt="Pré-visualização da Foto"
                 className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-center justify-center gap-3">
-                <span className="bg-white/90 backdrop-blur-sm text-verde-floresta font-bold text-xs px-3 py-2 rounded-lg shadow-md">
-                  Clique para trocar
+                <span className="bg-white/90 backdrop-blur-sm text-verde-floresta font-bold text-xs px-3.5 py-2 rounded-xl shadow-md">
+                  Clique para trocar a foto
                 </span>
                 <button
                   type="button"
                   onClick={handleRemoverImagem}
-                  className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg shadow-md transition-transform hover:scale-110"
+                  className="bg-red-600 hover:bg-red-700 text-white p-2.5 rounded-xl shadow-md transition-transform hover:scale-110"
                   title="Remover foto"
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -171,7 +264,7 @@ export default function ImageUpload({ valorAtual, aoMudarImagem, label = "Foto d
                 Arraste sua foto aqui ou <span className="text-terracota-500 underline">clique para selecionar</span>
               </p>
               <p className="text-xs text-cinza-ardosia">
-                Formatos aceitos: JPG, PNG, WEBP (Máx. 5MB)
+                Formatos aceitos: JPG, PNG, WEBP (Mín. 150x150, Máx. 5MB)
               </p>
             </div>
           )}
@@ -181,30 +274,45 @@ export default function ImageUpload({ valorAtual, aoMudarImagem, label = "Foto d
           <div className="relative">
             <input
               type="url"
-              placeholder="https://exemplo.com/minha-imagem.jpg"
+              placeholder="Cole o link da foto (ex: https://images.unsplash.com/...)"
               value={urlManual}
-              onChange={(e) => {
-                setUrlManual(e.target.value);
-                aoMudarImagem(e.target.value);
-              }}
+              onChange={(e) => handleAplicarUrlManual(e.target.value)}
               className="w-full px-4 py-3 bg-white border border-zinc-300 rounded-xl text-verde-floresta text-sm focus:outline-none focus:ring-2 focus:ring-terracota-500/50 shadow-sm"
             />
           </div>
 
+          {/* Sugestões Rápidas de Fotos de Alta Qualidade */}
+          <div className="space-y-1.5">
+            <span className="text-xs font-semibold text-cinza-ardosia">Ou escolha uma foto de alta resolução:</span>
+            <div className="flex flex-wrap gap-2">
+              {SUGESTOES_IMAGEM_FOOD.map((sug) => (
+                <button
+                  key={sug.nome}
+                  type="button"
+                  onClick={() => handleAplicarUrlManual(sug.url)}
+                  className="px-2.5 py-1 text-xs bg-creme-200/70 hover:bg-terracota-100 hover:text-terracota-600 text-verde-floresta font-semibold rounded-lg transition-colors border border-zinc-200"
+                >
+                  {sug.nome}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {valorAtual && (
-            <div className="h-44 w-full rounded-xl overflow-hidden border border-zinc-200 relative group bg-zinc-100">
+            <div className="h-44 w-full rounded-2xl overflow-hidden border border-zinc-200 relative group bg-zinc-100 shadow-sm">
               <img
                 src={previewSrc}
                 alt="Pré-visualização por link"
                 className="w-full h-full object-cover"
-                onError={(e) => {
-                  e.target.src = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=800&q=80';
+                onError={() => {
+                  setStatusValidacao('invalida');
+                  setMotivoInvalido('O link fornecido não aponta para uma imagem válida.');
                 }}
               />
               <button
                 type="button"
                 onClick={handleRemoverImagem}
-                className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-700 text-white p-1.5 rounded-lg shadow transition-transform hover:scale-105"
+                className="absolute top-2 right-2 bg-red-600/90 hover:bg-red-700 text-white p-2 rounded-xl shadow transition-transform hover:scale-105"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

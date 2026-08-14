@@ -16,24 +16,22 @@ export default function PaginaBusca() {
 
   useEffect(() => {
     setTermoInput(termoBusca);
-    if (termoBusca) {
-      setLoading(true);
-      async function buscarReceitas() {
-        try {
-          const resposta = await api.get(`/receitas?busca=${encodeURIComponent(termoBusca)}`);
-          setResultados(resposta.data || []);
-        } catch (erro) {
-          console.error("Erro ao buscar receitas:", erro);
-          toast.error("Erro ao carregar resultados da busca.");
-        } finally {
-          setLoading(false);
-        }
+    setLoading(true);
+    async function buscarReceitas() {
+      try {
+        const url = termoBusca 
+          ? `/receitas?busca=${encodeURIComponent(termoBusca)}` 
+          : '/receitas?ordenar=recentes';
+        const resposta = await api.get(url);
+        setResultados(resposta.data || []);
+      } catch (erro) {
+        console.error("Erro ao buscar receitas:", erro);
+        toast.error("Erro ao carregar resultados da busca.");
+      } finally {
+        setLoading(false);
       }
-      buscarReceitas();
-    } else {
-      setResultados([]);
-      setLoading(false);
     }
+    buscarReceitas();
   }, [termoBusca]);
 
   const handleBuscar = (e) => {
