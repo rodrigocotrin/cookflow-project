@@ -1,185 +1,376 @@
 // Arquivo: src/pages/PerfilPage.jsx
 import { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
-import api from '../services/api';
-import AvaliacaoEstrelas from '../components/AvaliacaoEstrelas'; // Certifique-se que o caminho está correto
-
-// --- ÍCONES PARA A UI ---
-function IconeCalendario() {
-  return <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-cinza-ardosia" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>;
-}
-function IconeLivro() {
-  return <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 p-1 text-terracota-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" /></svg>;
-}
-function IconeCoracao() {
-  return <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 p-1 text-terracota-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 016.364 0L12 7.5l1.318-1.182a4.5 4.5 0 116.364 6.364L12 21l-7.682-7.682a4.5 4.5 0 010-6.364z" /></svg>;
-}
-function IconeComentario() {
-    return <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 p-1 text-terracota-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>;
-}
-
-// --- COMPONENTES INTERNOS ---
-function AvatarUsuario({ nome }) {
-  const inicial = nome ? nome.charAt(0).toUpperCase() : '?';
-  return (
-    <div className="w-24 h-24 rounded-full bg-terracota-500/20 flex items-center justify-center text-terracota-600 font-bold text-5xl flex-shrink-0 border-4 border-white shadow-md">
-      {inicial}
-    </div>
-  );
-}
-
-function CartaoReceita({ receita, autor }) {
-  const imagemPadrao = "https://i.imgur.com/MuWdBYb.png";
-  return (
-    <Link to={`/receita/${receita.id_receita}`} className="bg-white p-4 rounded-xl shadow-sm border border-black/5 hover:shadow-lg hover:border-terracota-500/30 transition-all duration-300 flex items-center gap-4">
-      <img src={receita.url_imagem || imagemPadrao} alt={receita.titulo} className="w-24 h-24 object-cover rounded-lg flex-shrink-0 bg-zinc-100" />
-      <div className="flex-grow">
-        <h3 className="font-bold text-lg text-verde-floresta group-hover:underline">{receita.titulo}</h3>
-        {receita.descricao && <p className="text-sm text-cinza-ardosia line-clamp-2 mt-1">{receita.descricao}</p>}
-        {autor && <p className="text-sm text-cinza-ardosia mt-2">por: <span className="font-semibold">{autor}</span></p>}
-      </div>
-    </Link>
-  );
-}
-
-function CartaoAvaliacao({ avaliacao }) {
-    const imagemPadrao = "https://i.imgur.com/MuWdBYb.png";
-    return (
-        <Link 
-            to={`/receita/${avaliacao.id_receita}#comentarios`} 
-            className="group bg-white p-4 rounded-xl shadow-sm border border-black/5 hover:shadow-lg hover:border-terracota-500/30 transition-all duration-300 flex flex-col sm:flex-row items-start gap-4"
-        >
-            <img src={avaliacao.url_imagem || imagemPadrao} alt={avaliacao.titulo} className="w-full sm:w-32 h-32 object-cover rounded-lg flex-shrink-0 bg-zinc-100" />
-            <div className="flex-grow">
-                <h3 className="font-bold text-lg text-verde-floresta">{avaliacao.titulo}</h3>
-                <div className="my-2">
-                    <AvaliacaoEstrelas valorInicial={avaliacao.nota} />
-                </div>
-                <p className="text-cinza-ardosia italic">"{avaliacao.conteudo}"</p>
-                <p className="text-sm text-zinc-400 mt-2 text-right">
-                    {new Date(avaliacao.data_criacao).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                </p>
-            </div>
-        </Link>
-    );
-}
-
+import { Link, useNavigate } from 'react-router-dom';
+import api, { resolverUrlImagem } from '../services/api';
+import AvaliacaoEstrelas from '../components/AvaliacaoEstrelas';
+import { Helmet } from 'react-helmet-async';
+import { toast } from 'react-toastify';
+import { useAuth } from '../context/AuthContexto';
 
 export default function PerfilPage() {
+  const { usuario: usuarioLogado, logout } = useAuth();
+  const navigate = useNavigate();
   const [perfil, setPerfil] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [abaAtiva, setAbaAtiva] = useState('minhas');
+  const [abaAtiva, setAbaAtiva] = useState('minhas'); // 'minhas', 'favoritas', 'avaliacoes'
+
+  const carregarDadosDoPerfil = async () => {
+    try {
+      setLoading(true);
+      const { data } = await api.get('/perfil/completo');
+      setPerfil(data);
+    } catch (erro) {
+      console.error("Erro ao carregar dados do perfil:", erro);
+      toast.error('Não foi possível carregar seu perfil.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function carregarDadosDoPerfil() {
-      try {
-        const { data } = await api.get('/perfil/completo');
-        setPerfil(data);
-      } catch (erro) {
-        console.error("Erro ao carregar dados do perfil:", erro);
-      } finally {
-        setLoading(false);
-      }
-    }
     carregarDadosDoPerfil();
   }, []);
 
+  const handleExcluirReceita = async (id_receita, e) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!window.confirm('Tem certeza que deseja excluir esta receita permanentemente?')) {
+      return;
+    }
+
+    try {
+      await api.delete(`/receitas/${id_receita}`);
+      toast.success('Receita excluída com sucesso.');
+      carregarDadosDoPerfil();
+    } catch (err) {
+      toast.error('Erro ao excluir receita.');
+    }
+  };
+
   if (loading) {
-    return <p className="text-center text-cinza-ardosia mt-10">A carregar perfil...</p>;
+    return (
+      <div className="max-w-5xl mx-auto py-10 space-y-6 animate-pulse">
+        <div className="h-44 bg-zinc-200 rounded-3xl"></div>
+        <div className="h-10 bg-zinc-200 rounded-xl w-1/3"></div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="h-28 bg-zinc-200 rounded-2xl"></div>
+          <div className="h-28 bg-zinc-200 rounded-2xl"></div>
+        </div>
+      </div>
+    );
   }
+
   if (!perfil) {
-    return <p className="text-center text-red-500 mt-10">Não foi possível carregar o perfil.</p>;
+    return (
+      <div className="text-center py-20">
+        <p className="text-red-500 font-bold">Não foi possível carregar os dados do seu perfil.</p>
+        <button onClick={carregarDadosDoPerfil} className="btn-primary mt-4 py-2 px-6 text-sm">
+          Tentar Novamente
+        </button>
+      </div>
+    );
   }
-  
+
   const dataFormatada = new Date(perfil.usuario.data_criacao).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
+  const inicial = perfil.usuario.nome ? perfil.usuario.nome.charAt(0).toUpperCase() : '?';
 
   return (
-    <div className="bg-creme min-h-screen">
-      <div className="max-w-5xl mx-auto p-4 md:p-8">
-        {/* CARTÃO DE PERFIL --- SEÇÃO ALTERADA --- */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg p-8 flex flex-col md:flex-row items-center gap-8 mb-10 border border-black/5">
-          <AvatarUsuario nome={perfil.usuario.nome} />
-          <div className="text-center md:text-left flex-grow">
-            <h1 className="text-4xl font-bold text-verde-floresta">{perfil.usuario.nome}</h1>
-            <div className="flex items-center justify-center md:justify-start text-md text-cinza-ardosia mt-2">
-              <IconeCalendario />
-              <span>Membro desde {dataFormatada}</span>
-            </div>
+    <div className="max-w-5xl mx-auto space-y-8 selection:bg-terracota-500 selection:text-white pb-16">
+      <Helmet>
+        <title>Meu Perfil — CookFlow</title>
+      </Helmet>
+
+      {/* --- HERO DO PERFIL --- */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl shadow-card border border-white/80 flex flex-col md:flex-row items-center justify-between gap-6">
+        
+        {/* Info do Usuário */}
+        <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-2xl bg-gradient-to-br from-terracota-500 to-terracota-600 flex items-center justify-center text-white font-extrabold text-4xl shadow-lg shadow-terracota-500/30 flex-shrink-0 border-2 border-white">
+            {inicial}
           </div>
-          
-          {/* --- NOVO LAYOUT PARA AS ESTATÍSTICAS --- */}
-          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-8 mt-4 md:mt-0">
-            <div className="flex items-center gap-3">
-              <IconeLivro />
-              <div>
-                <p className="text-2xl font-bold text-verde-floresta leading-tight">{perfil.minhasReceitas.length}</p>
-                <p className="text-sm text-cinza-ardosia">Receitas</p>
-              </div>
+
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 bg-verde-floresta/10 text-verde-floresta px-2.5 py-0.5 rounded-full text-[11px] font-bold">
+              <span>👨‍🍳</span> Chef CookFlow
             </div>
-            <div className="flex items-center gap-3">
-              <IconeCoracao />
-              <div>
-                <p className="text-2xl font-bold text-verde-floresta leading-tight">{perfil.receitasFavoritas.length}</p>
-                <p className="text-sm text-cinza-ardosia">Favoritos</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <IconeComentario />
-              <div>
-                <p className="text-2xl font-bold text-verde-floresta leading-tight">{perfil.minhasAvaliacoes.length}</p>
-                <p className="text-sm text-cinza-ardosia">Avaliações</p>
-              </div>
-            </div>
+            <h1 className="text-2xl sm:text-3xl font-black text-verde-floresta font-heading">
+              {perfil.usuario.nome}
+            </h1>
+            <p className="text-xs text-cinza-ardosia">
+              {perfil.usuario.email} • Membro desde {dataFormatada}
+            </p>
           </div>
         </div>
 
-        {/* ABAS DE NAVEGAÇÃO */}
-        <div className="mb-8">
-          <div className="border-b border-zinc-300">
-            <nav className="-mb-px flex space-x-8" aria-label="Tabs">
-              <button onClick={() => setAbaAtiva('minhas')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg transition-colors ${abaAtiva === 'minhas' ? 'border-terracota-500 text-terracota-600' : 'border-transparent text-cinza-ardosia hover:text-verde-floresta hover:border-zinc-400'}`}>
-                Minhas Receitas
-              </button>
-              <button onClick={() => setAbaAtiva('favoritas')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg transition-colors ${abaAtiva === 'favoritas' ? 'border-terracota-500 text-terracota-600' : 'border-transparent text-cinza-ardosia hover:text-verde-floresta hover:border-zinc-400'}`}>
-                Receitas Favoritas
-              </button>
-              <button onClick={() => setAbaAtiva('avaliacoes')} className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-lg transition-colors ${abaAtiva === 'avaliacoes' ? 'border-terracota-500 text-terracota-600' : 'border-transparent text-cinza-ardosia hover:text-verde-floresta hover:border-zinc-400'}`}>
-                Minhas Avaliações
-              </button>
-            </nav>
+        {/* Métricas e Estatísticas */}
+        <div className="flex items-center gap-3 sm:gap-4 bg-creme-100/70 p-3 sm:p-4 rounded-2xl border border-zinc-200/70">
+          <div className="text-center px-2 sm:px-3">
+            <p className="text-xl sm:text-2xl font-black text-verde-floresta leading-tight">
+              {perfil.minhasReceitas.length}
+            </p>
+            <p className="text-[11px] font-bold text-cinza-ardosia uppercase tracking-wider">Criadas</p>
+          </div>
+
+          <div className="h-8 w-px bg-zinc-300"></div>
+
+          <div className="text-center px-2 sm:px-3">
+            <p className="text-xl sm:text-2xl font-black text-terracota-500 leading-tight">
+              {perfil.receitasFavoritas.length}
+            </p>
+            <p className="text-[11px] font-bold text-cinza-ardosia uppercase tracking-wider">Favoritas</p>
+          </div>
+
+          <div className="h-8 w-px bg-zinc-300"></div>
+
+          <div className="text-center px-2 sm:px-3">
+            <p className="text-xl sm:text-2xl font-black text-verde-floresta leading-tight">
+              {perfil.minhasAvaliacoes.length}
+            </p>
+            <p className="text-[11px] font-bold text-cinza-ardosia uppercase tracking-wider">Reviews</p>
           </div>
         </div>
+      </div>
 
-        {/* CONTEÚDO DAS ABAS */}
-        <div>
-          {abaAtiva === 'minhas' && (
-            <div className="space-y-4">
-              {perfil.minhasReceitas.length > 0 ? (
-                perfil.minhasReceitas.map(receita => <CartaoReceita key={receita.id_receita} receita={receita} />)
-              ) : (
-                <p className="text-cinza-ardosia text-center py-10">Você ainda não publicou nenhuma receita.</p>
-              )}
-            </div>
-          )}
-          {abaAtiva === 'favoritas' && (
-            <div className="space-y-4">
-              {perfil.receitasFavoritas.length > 0 ? (
-                perfil.receitasFavoritas.map(receita => <CartaoReceita key={receita.id_receita} receita={receita} autor={receita.nome_usuario} />)
-              ) : (
-                <p className="text-cinza-ardosia text-center py-10">Você ainda não favoritou nenhuma receita.</p>
-              )}
-            </div>
-          )}
-          {abaAtiva === 'avaliacoes' && (
-            <div className="space-y-4">
-              {perfil.minhasAvaliacoes.length > 0 ? (
-                perfil.minhasAvaliacoes.map(avaliacao => <CartaoAvaliacao key={avaliacao.id_comentario} avaliacao={avaliacao} />)
-              ) : (
-                <p className="text-cinza-ardosia text-center py-10">Você ainda não fez nenhuma avaliação.</p>
-              )}
-            </div>
-          )}
-        </div>
+      {/* --- ABAS DE NAVEGAÇÃO --- */}
+      <div className="flex border-b border-zinc-200 gap-4 sm:gap-8 overflow-x-auto pb-px">
+        <button
+          onClick={() => setAbaAtiva('minhas')}
+          className={`pb-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 flex items-center gap-2 ${
+            abaAtiva === 'minhas'
+              ? 'border-terracota-500 text-terracota-600'
+              : 'border-transparent text-cinza-ardosia hover:text-verde-floresta'
+          }`}
+        >
+          <span>🍳 Minhas Receitas</span>
+          <span className="text-xs px-2 py-0.5 bg-zinc-100 rounded-full font-bold">
+            {perfil.minhasReceitas.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAbaAtiva('favoritas')}
+          className={`pb-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 flex items-center gap-2 ${
+            abaAtiva === 'favoritas'
+              ? 'border-terracota-500 text-terracota-600'
+              : 'border-transparent text-cinza-ardosia hover:text-verde-floresta'
+          }`}
+        >
+          <span>❤️ Receitas Favoritas</span>
+          <span className="text-xs px-2 py-0.5 bg-zinc-100 rounded-full font-bold">
+            {perfil.receitasFavoritas.length}
+          </span>
+        </button>
+
+        <button
+          onClick={() => setAbaAtiva('avaliacoes')}
+          className={`pb-3 text-sm font-bold transition-all whitespace-nowrap border-b-2 flex items-center gap-2 ${
+            abaAtiva === 'avaliacoes'
+              ? 'border-terracota-500 text-terracota-600'
+              : 'border-transparent text-cinza-ardosia hover:text-verde-floresta'
+          }`}
+        >
+          <span>⭐ Minhas Avaliações</span>
+          <span className="text-xs px-2 py-0.5 bg-zinc-100 rounded-full font-bold">
+            {perfil.minhasAvaliacoes.length}
+          </span>
+        </button>
+      </div>
+
+      {/* --- CONTEÚDO DAS ABAS --- */}
+      <div>
+        {/* ABA: MINHAS RECEITAS */}
+        {abaAtiva === 'minhas' && (
+          <div>
+            {perfil.minhasReceitas.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {perfil.minhasReceitas.map(receita => {
+                  const urlImg = resolverUrlImagem(receita.url_imagem);
+                  return (
+                    <div
+                      key={receita.id_receita}
+                      className="glass-panel p-4 rounded-2xl border border-white/80 shadow-sm hover:shadow-card transition-all flex gap-4 items-center group"
+                    >
+                      <Link to={`/receita/${receita.id_receita}`} className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-100">
+                        <img
+                          src={urlImg}
+                          alt={receita.titulo}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          onError={(e) => {
+                            e.target.src = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=800&q=80';
+                          }}
+                        />
+                      </Link>
+
+                      <div className="flex-grow min-w-0 space-y-1">
+                        <Link to={`/receita/${receita.id_receita}`}>
+                          <h3 className="font-bold text-verde-floresta text-base truncate group-hover:text-terracota-500 transition-colors">
+                            {receita.titulo}
+                          </h3>
+                        </Link>
+                        <p className="text-xs text-cinza-ardosia line-clamp-1">
+                          {receita.descricao || 'Sem descrição.'}
+                        </p>
+                        <p className="text-[11px] text-cinza-ardosia">
+                          ⏱️ {receita.tempo_preparo_minutos} min • 🟢 {receita.dificuldade}
+                        </p>
+
+                        <div className="flex items-center gap-3 pt-1">
+                          <Link
+                            to={`/receitas/editar/${receita.id_receita}`}
+                            className="text-xs font-bold text-verde-floresta hover:text-terracota-500 flex items-center gap-1"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                            <span>Editar</span>
+                          </Link>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleExcluirReceita(receita.id_receita, e)}
+                            className="text-xs font-bold text-red-500 hover:text-red-700 flex items-center gap-1"
+                          >
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            <span>Excluir</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-16 px-4 glass-panel rounded-3xl border border-dashed border-zinc-300 space-y-3">
+                <div className="text-4xl">👨‍🍳</div>
+                <h3 className="font-bold text-verde-floresta text-base">Você ainda não publicou receitas</h3>
+                <p className="text-xs text-cinza-ardosia max-w-sm mx-auto">
+                  Compartilhe seus pratos e segredos culinários com toda a comunidade CookFlow.
+                </p>
+                <Link to="/receitas/criar" className="btn-primary inline-block py-2.5 px-6 text-xs">
+                  + Criar Nova Receita
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA: RECEITAS FAVORITAS */}
+        {abaAtiva === 'favoritas' && (
+          <div>
+            {perfil.receitasFavoritas.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {perfil.receitasFavoritas.map(receita => {
+                  const urlImg = resolverUrlImagem(receita.url_imagem);
+                  return (
+                    <Link
+                      key={receita.id_receita}
+                      to={`/receita/${receita.id_receita}`}
+                      className="glass-panel p-4 rounded-2xl border border-white/80 shadow-sm hover:shadow-card transition-all flex gap-4 items-center group"
+                    >
+                      <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-100">
+                        <img
+                          src={urlImg}
+                          alt={receita.titulo}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          onError={(e) => {
+                            e.target.src = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=800&q=80';
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex-grow min-w-0 space-y-1">
+                        <h3 className="font-bold text-verde-floresta text-base truncate group-hover:text-terracota-500 transition-colors">
+                          {receita.titulo}
+                        </h3>
+                        <p className="text-xs text-cinza-ardosia line-clamp-1">
+                          {receita.descricao || 'Sem descrição.'}
+                        </p>
+                        <p className="text-[11px] text-cinza-ardosia">
+                          Por: <span className="font-semibold text-verde-floresta">{receita.nome_usuario || 'Chef'}</span>
+                        </p>
+                        <span className="text-[11px] font-bold text-terracota-500 flex items-center gap-1">
+                          Ver receita completa →
+                        </span>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-16 px-4 glass-panel rounded-3xl border border-dashed border-zinc-300 space-y-3">
+                <div className="text-4xl">❤️</div>
+                <h3 className="font-bold text-verde-floresta text-base">Nenhuma receita favoritada ainda</h3>
+                <p className="text-xs text-cinza-ardosia max-w-sm mx-auto">
+                  Explore o catálogo de receitas e clique no coração para guardar suas favoritas!
+                </p>
+                <Link to="/" className="btn-primary inline-block py-2.5 px-6 text-xs">
+                  Explorar Receitas
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ABA: MINHAS AVALIAÇÕES */}
+        {abaAtiva === 'avaliacoes' && (
+          <div>
+            {perfil.minhasAvaliacoes.length > 0 ? (
+              <div className="space-y-4">
+                {perfil.minhasAvaliacoes.map(avaliacao => {
+                  const urlImg = resolverUrlImagem(avaliacao.url_imagem);
+                  return (
+                    <Link
+                      key={avaliacao.id_comentario}
+                      to={`/receita/${avaliacao.id_receita}#comentarios`}
+                      className="glass-panel p-5 rounded-2xl border border-white/80 shadow-sm hover:shadow-card transition-all flex flex-col sm:flex-row items-start gap-4 group"
+                    >
+                      <div className="w-full sm:w-28 h-28 rounded-xl overflow-hidden flex-shrink-0 bg-zinc-100">
+                        <img
+                          src={urlImg}
+                          alt={avaliacao.titulo}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                          onError={(e) => {
+                            e.target.src = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=800&q=80';
+                          }}
+                        />
+                      </div>
+
+                      <div className="flex-grow space-y-2">
+                        <div className="flex items-center justify-between">
+                          <h3 className="font-bold text-verde-floresta text-base group-hover:text-terracota-500 transition-colors">
+                            {avaliacao.titulo}
+                          </h3>
+                          <span className="text-[11px] text-cinza-ardosia">
+                            {new Date(avaliacao.data_criacao).toLocaleDateString('pt-BR')}
+                          </span>
+                        </div>
+
+                        <div>
+                          <AvaliacaoEstrelas valorInicial={avaliacao.nota} apenasLeitura={true} tamanho="sm" />
+                        </div>
+
+                        <p className="text-xs text-cinza-ardosia italic bg-creme-100/60 p-3 rounded-xl">
+                          "{avaliacao.conteudo}"
+                        </p>
+                      </div>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="text-center py-16 px-4 glass-panel rounded-3xl border border-dashed border-zinc-300 space-y-3">
+                <div className="text-4xl">⭐</div>
+                <h3 className="font-bold text-verde-floresta text-base">Você ainda não avaliou receitas</h3>
+                <p className="text-xs text-cinza-ardosia max-w-sm mx-auto">
+                  Deixe seu feedback e avaliações nas receitas que experimentar!
+                </p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

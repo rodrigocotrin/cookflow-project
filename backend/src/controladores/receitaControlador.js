@@ -2,10 +2,11 @@
 const db = require('../config/bd');
 
 // Função de validação atualizada para incluir a verificação da imagem
+const IMAGEM_PADRAO = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=800&q=80';
+
 const validarCorpoReceita = (corpo) => {
-    const { titulo, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes, url_imagem } = corpo;
+    const { titulo, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes } = corpo;
     if (!titulo || titulo.trim() === '') return 'O campo "título" é obrigatório.';
-    if (!url_imagem || url_imagem.trim() === '') return 'A URL da imagem é obrigatória.'; // ADICIONADO AQUI
     if (!id_categoria) return 'O campo "categoria" é obrigatório.';
     if (!tempo_preparo_minutos) return 'O campo "tempo de preparo" é obrigatório.';
     if (!dificuldade) return 'O campo "dificuldade" é obrigatório.';
@@ -28,7 +29,11 @@ const cadastrarReceita = async (requisicao, resposta) => {
         return resposta.status(400).json({ mensagem: erroValidacao });
     }
     
-    const { titulo, descricao, url_imagem, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes } = requisicao.body;
+    let { titulo, descricao, url_imagem, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes } = requisicao.body;
+    if (!url_imagem || url_imagem.trim() === '') {
+        url_imagem = IMAGEM_PADRAO;
+    }
+
     const client = await db.pool.connect();
     try {
         await client.query('BEGIN');
@@ -36,14 +41,14 @@ const cadastrarReceita = async (requisicao, resposta) => {
             INSERT INTO receitas (id_usuario, id_categoria, titulo, descricao, url_imagem, tempo_preparo_minutos, dificuldade, instrucoes)
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id_receita;
         `;
-        const resultadoReceita = await client.query(receitaQuery, [id_usuario, id_categoria, titulo, descricao, url_imagem, tempo_preparo_minutos, dificuldade, instrucoes]);
+        const resultadoReceita = await client.query(receitaQuery, [id_usuario, id_categoria, titulo.trim(), descricao ? descricao.trim() : '', url_imagem.trim(), tempo_preparo_minutos, dificuldade, instrucoes.trim()]);
         const id_receita = resultadoReceita.rows[0].id_receita;
 
         for (const ingrediente of ingredientes) {
-            let resultadoIngrediente = await client.query('SELECT id_ingrediente FROM ingredientes WHERE nome = $1', [ingrediente.nome]);
+            let resultadoIngrediente = await client.query('SELECT id_ingrediente FROM ingredientes WHERE LOWER(nome) = LOWER($1)', [ingrediente.nome.trim()]);
             let id_ingrediente;
             if (resultadoIngrediente.rows.length === 0) {
-                const novoIngredienteResult = await client.query('INSERT INTO ingredientes (nome) VALUES ($1) RETURNING id_ingrediente', [ingrediente.nome]);
+                const novoIngredienteResult = await client.query('INSERT INTO ingredientes (nome) VALUES ($1) RETURNING id_ingrediente', [ingrediente.nome.trim()]);
                 id_ingrediente = novoIngredienteResult.rows[0].id_ingrediente;
             } else {
                 id_ingrediente = resultadoIngrediente.rows[0].id_ingrediente;
@@ -66,9 +71,8 @@ const cadastrarReceita = async (requisicao, resposta) => {
 };
 
 const listarReceitas = async (requisicao, resposta) => {
-    const { busca, categoria, dificuldade } = requisicao.query;
+    const { busca, categoria, dificuldade, ordenar } = requisicao.query;
     try {
-        // Esta query base agora seleciona TODOS os campos necessários para o card
         let queryBase = `
             SELECT 
                 r.id_receita, 
@@ -76,7 +80,7 @@ const listarReceitas = async (requisicao, resposta) => {
                 r.descricao, 
                 r.dificuldade, 
                 r.tempo_preparo_minutos,
-                r.url_imagem, -- <<< Garantindo que a URL da imagem está aqui
+                r.url_imagem,
                 c.nome AS nome_categoria, 
                 u.nome AS nome_usuario,
                 COALESCE(ROUND(AVG(a.nota), 1), 0) AS media_avaliacoes,
@@ -100,7 +104,7 @@ const listarReceitas = async (requisicao, resposta) => {
             contadorParam++;
         }
         if (categoria) {
-            condicoes.push(`c.nome = $${contadorParam}`);
+            condicoes.push(`(c.nome ILIKE $${contadorParam} OR c.id_categoria::text = $${contadorParam})`);
             valores.push(categoria);
             contadorParam++;
         }
@@ -114,11 +118,15 @@ const listarReceitas = async (requisicao, resposta) => {
             queryBase += ` WHERE ${condicoes.join(' AND ')}`;
         }
         
-        // O GROUP BY é essencial para as funções AVG e COUNT
-        queryBase += ` 
-            GROUP BY r.id_receita, u.nome, c.nome
-            ORDER BY r.data_criacao DESC;
-        `;
+        queryBase += ` GROUP BY r.id_receita, u.nome, c.nome `;
+
+        if (ordenar === 'mais_avaliadas') {
+            queryBase += ` ORDER BY media_avaliacoes DESC, total_avaliacoes DESC, r.data_criacao DESC; `;
+        } else if (ordenar === 'mais_rapidas') {
+            queryBase += ` ORDER BY r.tempo_preparo_minutos ASC, r.data_criacao DESC; `;
+        } else {
+            queryBase += ` ORDER BY r.data_criacao DESC; `;
+        }
         
         const resultado = await db.query(queryBase, valores);
         return resposta.status(200).json(resultado.rows);
@@ -178,14 +186,17 @@ const atualizarReceita = async (requisicao, resposta) => {
         return resposta.status(400).json({ mensagem: erroValidacao });
     }
     
-    const { titulo, descricao, url_imagem, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes } = requisicao.body;
+    let { titulo, descricao, url_imagem, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, ingredientes } = requisicao.body;
+    if (!url_imagem || url_imagem.trim() === '') {
+        url_imagem = IMAGEM_PADRAO;
+    }
     const client = await db.pool.connect();
     try {
         await client.query('BEGIN');
         const receitaExistente = await client.query('SELECT * FROM receitas WHERE id_receita = $1 AND id_usuario = $2', [id_receita_a_editar, id_usuario_logado]);
         if (receitaExistente.rows.length === 0) {
             await client.query('ROLLBACK');
-            return resposta.status(404).json({ mensagem: 'Receita não encontrada ou não pertence ao utilizador.' });
+            return resposta.status(404).json({ mensagem: 'Receita não encontrada ou não pertence ao usuário.' });
         }
         await client.query('DELETE FROM receitas_ingredientes WHERE id_receita = $1', [id_receita_a_editar]);
         const updateQuery = `
@@ -193,13 +204,13 @@ const atualizarReceita = async (requisicao, resposta) => {
             SET titulo = $1, descricao = $2, url_imagem = $3, id_categoria = $4, tempo_preparo_minutos = $5, dificuldade = $6, instrucoes = $7
             WHERE id_receita = $8;
         `;
-        await client.query(updateQuery, [titulo, descricao, url_imagem, id_categoria, tempo_preparo_minutos, dificuldade, instrucoes, id_receita_a_editar]);
+        await client.query(updateQuery, [titulo.trim(), descricao ? descricao.trim() : '', url_imagem.trim(), id_categoria, tempo_preparo_minutos, dificuldade, instrucoes.trim(), id_receita_a_editar]);
         
         for (const ingrediente of ingredientes) {
-            let resultadoIngrediente = await client.query('SELECT id_ingrediente FROM ingredientes WHERE nome = $1', [ingrediente.nome]);
+            let resultadoIngrediente = await client.query('SELECT id_ingrediente FROM ingredientes WHERE LOWER(nome) = LOWER($1)', [ingrediente.nome.trim()]);
             let id_ingrediente;
             if (resultadoIngrediente.rows.length === 0) {
-                const novoIngredienteResult = await client.query('INSERT INTO ingredientes (nome) VALUES ($1) RETURNING id_ingrediente', [ingrediente.nome]);
+                const novoIngredienteResult = await client.query('INSERT INTO ingredientes (nome) VALUES ($1) RETURNING id_ingrediente', [ingrediente.nome.trim()]);
                 id_ingrediente = novoIngredienteResult.rows[0].id_ingrediente;
             } else {
                 id_ingrediente = resultadoIngrediente.rows[0].id_ingrediente;

@@ -4,8 +4,9 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "dev": "nodemon src/servidor.js"
+    "start": "node src/servidor.js",
+    "dev": "nodemon src/servidor.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
@@ -16,12 +17,13 @@
     "dotenv": "^17.2.2",
     "express": "^5.1.0",
     "jsonwebtoken": "^9.0.2",
+    "multer": "^2.2.0",
     "pg": "^8.16.3"
   },
   "devDependencies": {
     "nodemon": "^3.1.10"
   },
-"engines": {
+  "engines": {
     "node": "22.x"
   }
 }

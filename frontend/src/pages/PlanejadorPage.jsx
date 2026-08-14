@@ -1,361 +1,540 @@
 // Arquivo: src/pages/PlanejadorPage.jsx
 import { useState, useEffect, useMemo } from 'react';
-import api from '../services/api';
+import api, { resolverUrlImagem } from '../services/api';
+import { toast } from 'react-toastify';
+import { Helmet } from 'react-helmet-async';
+import { Link } from 'react-router-dom';
 
-// --- ÍCONES ---
-function IconeLista() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-terracota-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-    </svg>
-  );
-}
+// --- CATEGORIZAÇÃO INTELIGENTE DE SUPERMERCADO ---
+const getCategoriaIngrediente = (nome) => {
+  const nomeLower = nome.toLowerCase();
+  const categorias = {
+    '🥦 Hortifrúti & Feira': ['batata', 'tomate', 'pimentão', 'brócolis', 'espinafre', 'alface', 'pepino', 'abobrinha', 'berinjela', 'cenoura', 'ervilha', 'vagem', 'aipo', 'repolho', 'couve', 'couve-flor', 'batata-doce', 'jiló', 'quiabo', 'agrião', 'rúcula', 'nabo', 'rabanete', 'beterraba', 'alho', 'cebola', 'limão', 'lima', 'laranja', 'maçã', 'banana', 'morango', 'mirtilo', 'framboesa', 'abacate', 'abacaxi', 'manga', 'uva', 'pêssego', 'pera', 'uva passa', 'damasco', 'ameixa', 'figo', 'salsinha', 'cebolinha', 'coentro', 'hortelã'],
+    '🥩 Açougue & Peixaria': ['frango', 'carne', 'bife', 'porco', 'bacon', 'linguiça', 'presunto', 'peixe', 'salmão', 'atum', 'camarão', 'lombo', 'costeleta', 'tilápia', 'cordeiro', 'peru', 'sardinha', 'lula', 'polvo', 'mexilhão', 'salsicha', 'mortadela', 'salame', 'carne moída', 'filé'],
+    '🧀 Laticínios & Frios': ['leite', 'ovo', 'queijo', 'manteiga', 'creme de leite', 'iogurte', 'requeijão', 'ricota', 'nata', 'gorgonzola', 'cheddar', 'mussarela', 'parmesão', 'provolone'],
+    '🌾 Mercearia & Grãos': ['farinha', 'arroz', 'macarrão', 'pão', 'aveia', 'trigo', 'milho', 'quinoa', 'lasanha', 'cuscuz', 'feijão', 'lentilha', 'grão-de-bico', 'soja', 'açúcar', 'sal', 'azeite', 'óleo', 'vinagre', 'fermento'],
+    '🌿 Temperos & Molhos': ['pimenta', 'orégano', 'manjericão', 'canela', 'açafrão', 'páprica', 'gengibre', 'alecrim', 'tomilho', 'louro', 'cominho', 'noz-moscada', 'cravo', 'curry', 'colorau', 'shoyu', 'molho de tomate', 'extrato de tomate', 'ketchup', 'mostarda', 'maionese'],
+    '🍫 Confeitaria & Doces': ['chocolate', 'cacau', 'baunilha', 'mel', 'doce de leite', 'leite condensado', 'goiabada', 'gelatina', 'coco ralado', 'geleia'],
+    '🥤 Bebidas & Caldos': ['caldo', 'vinho', 'cerveja', 'café', 'chá', 'suco', 'leite de coco']
+  };
 
-function IconeCarrinho() {
+  for (const categoria in categorias) {
+    if (categorias[categoria].some(termo => nomeLower.includes(termo))) {
+      return categoria;
+    }
+  }
+  return '📦 Outros Itens';
+};
+
+export default function PlanejadorPage() {
+  const [receitasSelecionaveis, setReceitasSelecionaveis] = useState([]);
+  const [receitasSelecionadas, setReceitasSelecionadas] = useState(new Set());
+  const [listaDeCompras, setListaDeCompras] = useState([]);
+  const [listaPorReceita, setListaPorReceita] = useState({});
+  const [itensMarcados, setItensMarcados] = useState(new Set());
+  const [loading, setLoading] = useState(true);
+  const [gerando, setGerando] = useState(false);
+  const [filtroModo, setFiltroModo] = useState('categoria'); // 'categoria', 'consolidado', 'porReceita'
+  const [detalhesVisiveis, setDetalhesVisiveis] = useState(null);
+
+  const carregarReceitas = async () => {
+    try {
+      setLoading(true);
+      const resposta = await api.get('/lista-de-compras/receitas');
+      setReceitasSelecionaveis(resposta.data);
+
+      // Auto-seleciona as receitas inicialmente para maior conveniência
+      if (resposta.data && resposta.data.length > 0) {
+        const todosIds = new Set(resposta.data.map(r => r.id_receita));
+        setReceitasSelecionadas(todosIds);
+        gerarListaAutomatica(todosIds);
+      }
+    } catch (err) {
+      console.error('Erro ao carregar receitas:', err);
+      toast.error('Não foi possível carregar as receitas do planejador.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const gerarListaAutomatica = async (idsSet) => {
+    if (!idsSet || idsSet.size === 0) {
+      setListaDeCompras([]);
+      setListaPorReceita({});
+      return;
+    }
+    try {
+      setGerando(true);
+      const ids_receitas = Array.from(idsSet);
+      const resposta = await api.post('/lista-de-compras', { ids_receitas });
+      setListaDeCompras(resposta.data.consolidada || []);
+      setListaPorReceita(resposta.data.porReceita || {});
+    } catch (err) {
+      console.error('Erro ao gerar lista:', err);
+    } finally {
+      setGerando(false);
+    }
+  };
+
+  useEffect(() => {
+    carregarReceitas();
+  }, []);
+
+  const handleSelecaoReceita = (id) => {
+    const novasSelecoes = new Set(receitasSelecionadas);
+    if (novasSelecoes.has(id)) {
+      novasSelecoes.delete(id);
+    } else {
+      novasSelecoes.add(id);
+    }
+    setReceitasSelecionadas(novasSelecoes);
+    gerarListaAutomatica(novasSelecoes);
+  };
+
+  const handleSelecionarTodas = () => {
+    if (receitasSelecionadas.size === receitasSelecionaveis.length) {
+      setReceitasSelecionadas(new Set());
+      setListaDeCompras([]);
+      setListaPorReceita({});
+    } else {
+      const todos = new Set(receitasSelecionaveis.map(r => r.id_receita));
+      setReceitasSelecionadas(todos);
+      gerarListaAutomatica(todos);
+    }
+  };
+
+  const handleMarcarItem = (chaveItem) => {
+    setItensMarcados(prev => {
+      const novo = new Set(prev);
+      if (novo.has(chaveItem)) {
+        novo.delete(chaveItem);
+      } else {
+        novo.add(chaveItem);
+      }
+      return novo;
+    });
+  };
+
+  const handleCompartilharWhatsApp = () => {
+    if (listaDeCompras.length === 0) {
+      toast.warning('Gere ou selecione ao menos uma receita para compartilhar.');
+      return;
+    }
+
+    let mensagem = `🛒 *MINHA LISTA DE COMPRAS — COOKFLOW*\n\n`;
+
+    if (filtroModo === 'categoria') {
+      const agrupado = listaDeCompras.reduce((acc, item) => {
+        const cat = getCategoriaIngrediente(item.nome);
+        if (!acc[cat]) acc[cat] = [];
+        acc[cat].push(item);
+        return acc;
+      }, {});
+
+      Object.entries(agrupado).forEach(([cat, itens]) => {
+        mensagem += `*${cat.toUpperCase()}*\n`;
+        itens.forEach(item => {
+          const marcado = itensMarcados.has(`${item.nome}_${item.unidade_medida}`);
+          mensagem += `${marcado ? '✅' : '▫️'} ${item.nome}: ${item.quantidade_total} ${item.unidade_medida}\n`;
+        });
+        mensagem += '\n';
+      });
+    } else {
+      listaDeCompras.forEach(item => {
+        const marcado = itensMarcados.has(`${item.nome}_${item.unidade_medida}`);
+        mensagem += `${marcado ? '✅' : '▫️'} ${item.nome}: ${item.quantidade_total} ${item.unidade_medida}\n`;
+      });
+    }
+
+    mensagem += `\n✨ Criado com amor pelo CookFlow: ${window.location.origin}`;
+
+    const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(mensagem)}`;
+    window.open(url, '_blank');
+  };
+
+  const handleCopiarTexto = () => {
+    if (listaDeCompras.length === 0) return;
+
+    let texto = `LISTA DE COMPRAS — COOKFLOW\n\n`;
+    listaDeCompras.forEach(item => {
+      texto += `- ${item.nome}: ${item.quantidade_total} ${item.unidade_medida}\n`;
+    });
+
+    navigator.clipboard.writeText(texto)
+      .then(() => toast.success('Lista copiada para a área de transferência!'))
+      .catch(() => toast.error('Não foi possível copiar o texto.'));
+  };
+
+  // Cálculo de progresso de compras
+  const totalItens = listaDeCompras.length;
+  const totalMarcados = listaDeCompras.filter(item => itensMarcados.has(`${item.nome}_${item.unidade_medida}`)).length;
+  const porcentagemConcluida = totalItens > 0 ? Math.round((totalMarcados / totalItens) * 100) : 0;
+
+  // Lista agrupada por Categoria de Supermercado
+  const listaPorCategoria = useMemo(() => {
+    const agrupado = listaDeCompras.reduce((acc, item) => {
+      const cat = getCategoriaIngrediente(item.nome);
+      if (!acc[cat]) acc[cat] = [];
+      acc[cat].push(item);
+      return acc;
+    }, {});
+
+    return Object.entries(agrupado).sort(([a], [b]) => a.localeCompare(b));
+  }, [listaDeCompras]);
+
+  if (loading) {
     return (
-        <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z" />
-        </svg>
+      <div className="max-w-4xl mx-auto py-12 space-y-6 animate-pulse">
+        <div className="h-10 bg-zinc-200 rounded-2xl w-1/3 mx-auto"></div>
+        <div className="h-40 bg-zinc-200 rounded-3xl"></div>
+        <div className="h-64 bg-zinc-200 rounded-3xl"></div>
+      </div>
     );
-}
+  }
 
-function IconeCheck() {
-    return (
-        <div className="absolute top-2 right-2 w-5 h-5 bg-terracota-500 rounded-full flex items-center justify-center text-white z-10">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
+  return (
+    <div className="max-w-4xl mx-auto space-y-8 selection:bg-terracota-500 selection:text-white pb-16">
+      <Helmet>
+        <title>CookFlow — Carrinho Inteligente & Lista de Supermercado</title>
+      </Helmet>
+
+      {/* --- CABEÇALHO HERO --- */}
+      <div className="text-center space-y-3">
+        <div className="inline-flex items-center gap-2 bg-terracota-50 text-terracota-600 px-4 py-1.5 rounded-full text-xs font-extrabold uppercase border border-terracota-200 shadow-sm">
+          <span>🛒</span> Carrinho Inteligente CookFlow
         </div>
-    );
-}
+        <h1 className="text-3xl sm:text-5xl font-black text-verde-floresta font-heading tracking-tight">
+          Planeje suas Compras de Supermercado
+        </h1>
+        <p className="text-sm sm:text-base text-cinza-ardosia max-w-xl mx-auto">
+          Selecione as receitas que deseja preparar e o CookFlow soma e agrupa todos os ingredientes automaticamente!
+        </p>
+      </div>
 
-function IconePratoPlaceholder() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-zinc-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21.3,3H2.7C2.3,3,2,3.3,2,3.7v16.5C2,20.7,2.3,21,2.7,21h18.7c0.4,0,0.7-0.3,0.7-0.7V3.7C22,3.3,21.7,3,21.3,3z M21,19H3V5h18V19z" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12,8c-2.2,0-4,1.8-4,4s1.8,4,4,4s4-1.8,4-4S14.2,8,12,8z M12,15c-1.7,0-3-1.3-3-3s1.3-3,3-3s3,1.3,3,3S13.7,15,12,15z" />
-    </svg>
-  );
-}
+      {/* --- PASSO 1: SELEÇÃO DE RECEITAS --- */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl shadow-card border border-white/80 space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 pb-4">
+          <div>
+            <h2 className="text-xl font-bold text-verde-floresta font-heading flex items-center gap-2">
+              <span>🍳</span> 1. Receitas no Cardápio
+            </h2>
+            <p className="text-xs text-cinza-ardosia">
+              Clique para ativar ou desativar uma receita da soma
+            </p>
+          </div>
 
-function IconeChevron({ estaAberto }) {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className={`h-5 w-5 text-cinza-ardosia transition-transform duration-300 ${estaAberto ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-    </svg>
-  );
-}
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-bold text-terracota-600 bg-terracota-50 px-3 py-1 rounded-full border border-terracota-200">
+              {receitasSelecionadas.size} selecionada(s)
+            </span>
+            {receitasSelecionaveis.length > 0 && (
+              <button
+                type="button"
+                onClick={handleSelecionarTodas}
+                className="text-xs font-bold text-verde-floresta hover:text-terracota-500 underline"
+              >
+                {receitasSelecionadas.size === receitasSelecionaveis.length ? 'Desmarcar Todas' : 'Marcar Todas'}
+              </button>
+            )}
+          </div>
+        </div>
 
-function AvatarReceita({ titulo }) {
-  const inicial = titulo ? titulo.charAt(0).toUpperCase() : '?';
-  return (
-    <div className="w-8 h-8 rounded-full bg-terracota-500/20 flex items-center justify-center text-terracota-600 font-semibold text-sm flex-shrink-0">
-      {inicial}
+        {receitasSelecionaveis.length > 0 ? (
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+            {receitasSelecionaveis.map((receita) => {
+              const selecionada = receitasSelecionadas.has(receita.id_receita);
+              const urlImg = resolverUrlImagem(receita.url_imagem);
+
+              return (
+                <div
+                  key={receita.id_receita}
+                  onClick={() => handleSelecaoReceita(receita.id_receita)}
+                  className={`group relative rounded-2xl cursor-pointer transition-all duration-300 overflow-hidden select-none border-2 ${
+                    selecionada
+                      ? 'border-terracota-500 shadow-card scale-[1.02] ring-4 ring-terracota-500/20'
+                      : 'border-zinc-200 opacity-60 hover:opacity-100 hover:border-zinc-300'
+                  }`}
+                >
+                  {/* Badge de Selecionado */}
+                  <div className={`absolute top-2 right-2 z-10 w-6 h-6 rounded-full flex items-center justify-center transition-all ${
+                    selecionada ? 'bg-terracota-500 text-white shadow-md' : 'bg-black/40 text-white/60'
+                  }`}>
+                    {selecionada ? (
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 stroke-[3]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    ) : (
+                      <span className="text-[10px]">+</span>
+                    )}
+                  </div>
+
+                  <div className="h-28 w-full bg-zinc-100 overflow-hidden">
+                    <img
+                      src={urlImg}
+                      alt={receita.titulo}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                      onError={(e) => {
+                        e.target.src = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=800&q=80';
+                      }}
+                    />
+                  </div>
+
+                  <div className="p-2.5 bg-white">
+                    <p className="text-xs font-bold text-verde-floresta truncate leading-tight">
+                      {receita.titulo}
+                    </p>
+                    <span className="text-[10px] text-cinza-ardosia">
+                      {receita.tempo_preparo_minutos} min
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="text-center py-10 px-4 bg-creme-100/70 rounded-2xl border border-dashed border-zinc-300 space-y-3">
+            <div className="text-4xl">🧑‍🍳</div>
+            <h3 className="font-bold text-verde-floresta text-base">Seu cardápio ainda está vazio</h3>
+            <p className="text-xs text-cinza-ardosia max-w-sm mx-auto">
+              Navegue pelas receitas na página inicial e clique em "Adicionar ao Carrinho" ou crie as suas próprias receitas!
+            </p>
+            <Link to="/" className="btn-primary inline-block py-2 px-5 text-xs">
+              Explorar Receitas
+            </Link>
+          </div>
+        )}
+      </div>
+
+      {/* --- PASSO 2: LISTA DE SUPERMERCADO AUTOMATIZADA --- */}
+      <div className="glass-panel p-6 sm:p-8 rounded-3xl shadow-card border border-white/80 space-y-6">
+        
+        {/* Barra Superior da Lista */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200 pb-5">
+          <div>
+            <h2 className="text-2xl font-bold text-verde-floresta font-heading flex items-center gap-2">
+              <span>📋</span> 2. Lista de Supermercado
+            </h2>
+            <p className="text-xs text-cinza-ardosia mt-0.5">
+              {totalItens} {totalItens === 1 ? 'ingrediente consolidado' : 'ingredientes consolidados'}
+            </p>
+          </div>
+
+          {/* Ações Rápidas de Exportação */}
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={handleCompartilharWhatsApp}
+              disabled={totalItens === 0}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs py-2 px-3.5 rounded-xl shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
+              title="Compartilhar lista no WhatsApp"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/>
+              </svg>
+              <span>WhatsApp</span>
+            </button>
+
+            <button
+              onClick={handleCopiarTexto}
+              disabled={totalItens === 0}
+              className="bg-white border border-zinc-300 hover:bg-zinc-100 text-verde-floresta font-bold text-xs py-2 px-3.5 rounded-xl shadow-sm transition-all flex items-center gap-1.5 disabled:opacity-40"
+              title="Copiar lista de compras"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+              </svg>
+              <span>Copiar</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Barra de Progresso no Mercado */}
+        {totalItens > 0 && (
+          <div className="p-4 bg-creme-100/70 rounded-2xl space-y-2 border border-zinc-200/60">
+            <div className="flex justify-between items-center text-xs font-bold text-verde-floresta">
+              <span>Progresso das Compras:</span>
+              <span>{totalMarcados} de {totalItens} itens no carrinho ({porcentagemConcluida}%)</span>
+            </div>
+            <div className="w-full h-3 bg-zinc-200 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-terracota-500 to-emerald-500 transition-all duration-500"
+                style={{ width: `${porcentagemConcluida}%` }}
+              ></div>
+            </div>
+          </div>
+        )}
+
+        {/* Abas de Modo de Visualização */}
+        <div className="flex gap-2 p-1 bg-zinc-100 rounded-xl text-xs font-bold w-fit">
+          <button
+            onClick={() => setFiltroModo('categoria')}
+            className={`px-3.5 py-1.5 rounded-lg transition-all ${
+              filtroModo === 'categoria'
+                ? 'bg-white text-terracota-600 shadow-sm'
+                : 'text-cinza-ardosia hover:text-verde-floresta'
+            }`}
+          >
+            Por Seção do Mercado 🏬
+          </button>
+          <button
+            onClick={() => setFiltroModo('consolidado')}
+            className={`px-3.5 py-1.5 rounded-lg transition-all ${
+              filtroModo === 'consolidado'
+                ? 'bg-white text-terracota-600 shadow-sm'
+                : 'text-cinza-ardosia hover:text-verde-floresta'
+            }`}
+          >
+            Todos os Itens 📝
+          </button>
+          <button
+            onClick={() => setFiltroModo('porReceita')}
+            className={`px-3.5 py-1.5 rounded-lg transition-all ${
+              filtroModo === 'porReceita'
+                ? 'bg-white text-terracota-600 shadow-sm'
+                : 'text-cinza-ardosia hover:text-verde-floresta'
+            }`}
+          >
+            Por Receita 🍽️
+          </button>
+        </div>
+
+        {/* LISTAGEM DE ITENS */}
+        {gerando ? (
+          <div className="py-12 flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-4 border-terracota-500 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-xs font-bold text-verde-floresta">Consolidando ingredientes...</p>
+          </div>
+        ) : totalItens === 0 ? (
+          <div className="text-center py-12 px-4 border-2 border-dashed border-zinc-300 rounded-2xl">
+            <p className="font-bold text-verde-floresta text-base">Selecione ao menos 1 receita acima</p>
+            <p className="text-xs text-cinza-ardosia mt-1">
+              Os ingredientes serão somados instantaneamente na sua lista de mercado.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* MODO 1: POR CATEGORIA */}
+            {filtroModo === 'categoria' && (
+              <div className="space-y-6">
+                {listaPorCategoria.map(([categoria, itens]) => (
+                  <div key={categoria} className="space-y-2.5">
+                    <h3 className="text-sm font-extrabold text-verde-floresta uppercase tracking-wider pb-1 border-b border-zinc-200 flex items-center gap-2">
+                      {categoria}
+                      <span className="text-[11px] font-normal text-cinza-ardosia lowercase">({itens.length})</span>
+                    </h3>
+
+                    <ul className="space-y-2">
+                      {itens.map(item => (
+                        <LinhaIngrediente
+                          key={`${item.nome}_${item.unidade_medida}`}
+                          item={item}
+                          marcado={itensMarcados.has(`${item.nome}_${item.unidade_medida}`)}
+                          onMarcar={() => handleMarcarItem(`${item.nome}_${item.unidade_medida}`)}
+                          expandido={detalhesVisiveis === `${item.nome}_${item.unidade_medida}`}
+                          onToggleExpandir={() => setDetalhesVisiveis(detalhesVisiveis === `${item.nome}_${item.unidade_medida}` ? null : `${item.nome}_${item.unidade_medida}`)}
+                        />
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* MODO 2: CONSOLIDADO DIRETO */}
+            {filtroModo === 'consolidado' && (
+              <ul className="space-y-2">
+                {listaDeCompras.map(item => (
+                  <LinhaIngrediente
+                    key={`${item.nome}_${item.unidade_medida}`}
+                    item={item}
+                    marcado={itensMarcados.has(`${item.nome}_${item.unidade_medida}`)}
+                    onMarcar={() => handleMarcarItem(`${item.nome}_${item.unidade_medida}`)}
+                    expandido={detalhesVisiveis === `${item.nome}_${item.unidade_medida}`}
+                    onToggleExpandir={() => setDetalhesVisiveis(detalhesVisiveis === `${item.nome}_${item.unidade_medida}` ? null : `${item.nome}_${item.unidade_medida}`)}
+                  />
+                ))}
+              </ul>
+            )}
+
+            {/* MODO 3: AGRUPADO POR RECEITA */}
+            {filtroModo === 'porReceita' && (
+              <div className="space-y-6">
+                {Object.entries(listaPorReceita).map(([nomeReceita, ings]) => (
+                  <div key={nomeReceita} className="p-4 bg-white rounded-2xl border border-zinc-200 shadow-sm space-y-3">
+                    <h3 className="font-bold text-verde-floresta text-base flex items-center gap-2 border-b border-zinc-100 pb-2">
+                      <span>🍲</span> {nomeReceita}
+                    </h3>
+                    <ul className="space-y-1.5 pl-2">
+                      {ings.map((ing, idx) => (
+                        <li key={idx} className="flex justify-between text-xs text-verde-floresta py-1 border-b border-zinc-50 last:border-0">
+                          <span className="font-medium">• {ing.nome}</span>
+                          <span className="font-mono font-bold text-terracota-600">
+                            {ing.quantidade} {ing.unidade_medida}
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-// --- NOVOS ÍCONES DE FILTRO ---
-function IconeAZ() {
-    return <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4" /></svg>;
-}
-function IconePratoFacaGarfo() {
-    return <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5.636 18.364a9 9 0 010-12.728m12.728 0a9 9 0 010 12.728m-9.9-2.829a5 5 0 00-7.07-7.07m14.14 0a5 5 0 00-7.07 7.07M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>;
-}
-function IconeEtiqueta() {
-    return <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-5 5a2 2 0 01-2.828 0l-7-7A2 2 0 013 8V3a1 1 0 011-1z" /></svg>;
-}
+function LinhaIngrediente({ item, marcado, onMarcar, expandido, onToggleExpandir }) {
+  return (
+    <li className={`p-3 rounded-2xl border transition-all ${
+      marcado
+        ? 'bg-emerald-50/70 border-emerald-200 opacity-70'
+        : 'bg-white border-zinc-200/80 hover:border-terracota-500/40 shadow-sm'
+    }`}>
+      <div className="flex items-center justify-between gap-3">
+        <label className="flex items-center gap-3 min-w-0 cursor-pointer flex-grow select-none">
+          <input
+            type="checkbox"
+            checked={marcado}
+            onChange={onMarcar}
+            className="w-5 h-5 rounded-lg text-terracota-500 focus:ring-terracota-500 border-zinc-300 cursor-pointer"
+          />
+          <span className={`text-sm font-semibold truncate ${
+            marcado ? 'line-through text-emerald-800' : 'text-verde-floresta'
+          }`}>
+            {item.nome}
+          </span>
+        </label>
 
-// --- LÓGICA DE CATEGORIZAÇÃO ---
-const getCategoriaIngrediente = (nome) => {
-    const nomeLower = nome.toLowerCase();
-    const categorias = {
-        'Laticínios e Ovos': ['leite', 'ovo', 'queijo', 'manteiga', 'creme', 'iogurte', 'requeijão', 'ricota', 'nata', 'gorgonzola', 'cheddar', 'mussarela', 'parmesão'],
-        'Carnes, Aves e Peixes': ['frango', 'carne', 'bife', 'porco', 'bacon', 'linguiça', 'presunto', 'peixe', 'salmão', 'atum', 'camarão', 'lombo', 'costeleta', 'tilápia', 'cordeiro', 'peru', 'sardinha', 'lula', 'polvo', 'mexilhão', 'salsicha', 'mortadela', 'salame'],
-        'Grãos, Pães e Massas': ['farinha', 'arroz', 'macarrão', 'pão', 'aveia', 'trigo', 'milho', 'quinoa', 'pão de forma', 'lasanha', 'cuscuz', 'cevada', 'centeio', 'granola'],
-        'Temperos e Especiarias': ['sal', 'pimenta', 'açúcar', 'orégano', 'manjericão', 'salsinha', 'alho', 'cebola', 'canela', 'açafrão', 'páprica', 'gengibre', 'coentro', 'alecrim', 'tomilho', 'louro', 'cominho', 'noz-moscada', 'cravo', 'curry', 'cebolinha', 'hortelã', 'endro', 'colorau', 'ervas finas'],
-        'Frutas': ['limão', 'lima', 'laranja', 'maçã', 'banana', 'morango', 'mirtilo', 'framboesa', 'abacate', 'abacaxi', 'manga', 'uva', 'pêssego', 'pera', 'uva passa', 'damasco', 'ameixa', 'tâmara', 'figo'],
-        'Verduras e Legumes': ['batata', 'tomate', 'pimentão', 'brócolis', 'espinafre', 'alface', 'pepino', 'abobrinha', 'berinjela', 'cenoura', 'ervilha', 'vagem', 'aipo', 'repolho', 'couve-flor', 'batata-doce', 'jiló', 'quiabo', 'couve', 'agrião', 'rúcula', 'nabo', 'rabanete', 'beterraba'],
-        'Molhos, Óleos e Gorduras': ['óleo', 'azeite', 'vinagre', 'molho de soja', 'shoyu', 'molho inglês', 'ketchup', 'mostarda', 'maionese', 'margarina', 'extrato de tomate', 'molho de tomate'],
-        'Castanhas e Sementes': ['amêndoa', 'noz', 'nozes', 'castanha', 'amendoim', 'pistache', 'avelã', 'semente de gergelim', 'semente de chia', 'semente de linhaça'],
-        'Confeitaria e Doces': ['chocolate', 'cacau', 'baunilha', 'mel', 'xarope', 'açúcar mascavo', 'açúcar de confeiteiro', 'doce de leite', 'leite condensado', 'goiabada', 'gelatina', 'coco ralado', 'geleia'],
-        'Leguminosas e Grãos Secos': ['feijão', 'lentilha', 'grão-de-bico', 'soja'],
-        'Bebidas e Caldos': ['caldo de galinha', 'caldo de carne', 'caldo de legumes', 'leite de coco', 'vinho', 'cerveja', 'cachaça', 'café', 'chá', 'suco', 'refrigerante'],
-    };
-    for (const categoria in categorias) {
-        if (categorias[categoria].some(termo => nomeLower.includes(termo))) {
-            return categoria;
-        }
-    }
-    return 'Outros';
-};
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="font-mono font-extrabold text-xs text-terracota-600 bg-terracota-50 px-2.5 py-1 rounded-lg">
+            {item.quantidade_total} {item.unidade_medida}
+          </span>
 
-export default function PlanejadorPage() {
-    const [receitasSelecionaveis, setReceitasSelecionaveis] = useState([]);
-    const [receitasSelecionadas, setReceitasSelecionadas] = useState(new Set());
-    const [listaDeCompras, setListaDeCompras] = useState([]);
-    const [listaPorReceita, setListaPorReceita] = useState({});
-    const [itensMarcados, setItensMarcados] = useState(new Set());
-    const [loading, setLoading] = useState(true);
-    const [erro, setErro] = useState('');
-    const [detalhesVisiveis, setDetalhesVisiveis] = useState(null);
-    const [filtroAtivo, setFiltroAtivo] = useState('consolidado');
-    const [ordenacaoAZ, setOrdenacaoAZ] = useState(false);
-
-    useEffect(() => {
-        if (receitasSelecionadas.size === 0) {
-            setListaDeCompras([]);
-            setListaPorReceita({});
-        }
-    }, [receitasSelecionadas]);
-
-    useEffect(() => {
-        async function carregarReceitas() {
-            try {
-                const resposta = await api.get('/lista-de-compras/receitas');
-                setReceitasSelecionaveis(resposta.data);
-            } catch (err) {
-                setErro('Não foi possível carregar as suas receitas.');
-            } finally {
-                setLoading(false);
-            }
-        }
-        carregarReceitas();
-    }, []);
-
-    const handleSelecaoReceita = (id) => {
-        const novasSelecoes = new Set(receitasSelecionadas);
-        novasSelecoes.has(id) ? novasSelecoes.delete(id) : novasSelecoes.add(id);
-        setReceitasSelecionadas(novasSelecoes);
-        setFiltroAtivo('consolidado');
-    };
-
-    const handleGerarLista = async () => {
-        if (receitasSelecionadas.size === 0) {
-            alert('Por favor, selecione pelo menos uma receita.');
-            return;
-        }
-        try {
-            const ids_receitas = Array.from(receitasSelecionadas);
-            const resposta = await api.post('/lista-de-compras', { ids_receitas });
-            setListaDeCompras(resposta.data.consolidada);
-            setListaPorReceita(resposta.data.porReceita);
-            setItensMarcados(new Set());
-            setDetalhesVisiveis(null);
-            setFiltroAtivo('consolidado');
-        } catch (err) {
-            setErro('Ocorreu um erro ao gerar a sua lista de compras.');
-        }
-    };
-
-    const handleMarcarItem = (chaveItem) => {
-        const novosMarcados = new Set(itensMarcados);
-        novosMarcados.has(chaveItem) ? novosMarcados.delete(chaveItem) : novosMarcados.add(chaveItem);
-        setItensMarcados(novosMarcados);
-    };
-
-    const toggleDetalhes = (chaveItem) => {
-        setDetalhesVisiveis(detalhesVisiveis === chaveItem ? null : chaveItem);
-    };
-
-    const handleFiltroClick = (filtro) => {
-        if (filtroAtivo === filtro) {
-            setFiltroAtivo('consolidado');
-        } else {
-            setFiltroAtivo(filtro);
-        }
-    };
-
-    const listaExibida = useMemo(() => {
-        const sortFunction = (a, b) => a.nome.localeCompare(b.nome);
-
-        if (filtroAtivo === 'porCategoria') {
-            const agrupado = listaDeCompras.reduce((acc, item) => {
-                const categoria = getCategoriaIngrediente(item.nome);
-                if (!acc[categoria]) acc[categoria] = [];
-                acc[categoria].push(item);
-                return acc;
-            }, {});
-
-            if (ordenacaoAZ) {
-                Object.keys(agrupado).forEach(cat => agrupado[cat].sort(sortFunction));
-            }
-            
-            return Object.entries(agrupado).sort(([catA], [catB]) => {
-                if (catA === 'Outros') return 1;
-                if (catB === 'Outros') return -1;
-                return catA.localeCompare(catB);
-            });
-        }
-        
-        let lista = [...listaDeCompras];
-        if (ordenacaoAZ) {
-            lista.sort(sortFunction);
-        }
-        return lista;
-    }, [listaDeCompras, filtroAtivo, ordenacaoAZ]);
-
-    const listaPorReceitaExibida = useMemo(() => {
-        const sorted = {};
-        const receitas = Object.keys(listaPorReceita).sort((a,b) => a.localeCompare(b));
-        
-        receitas.forEach(receita => {
-            let ingredientes = [...listaPorReceita[receita]];
-            if(ordenacaoAZ){
-                ingredientes.sort((a,b) => a.nome.localeCompare(b.nome));
-            }
-            sorted[receita] = ingredientes;
-        });
-        return sorted;
-    }, [listaPorReceita, ordenacaoAZ]);
-
-    if (loading) return <p className="text-center text-cinza-ardosia mt-10">Carregando planejador...</p>;
-
-    return (
-        <div className="bg-creme min-h-screen">
-            <div className="max-w-4xl mx-auto p-4 md:p-8">
-                <div className="text-center mb-10 flex flex-col items-center">
-                    <IconeLista />
-                    <h1 className="text-4xl md:text-5xl font-bold text-verde-floresta mt-4">Planejador de Compras</h1>
-                    <p className="text-lg text-cinza-ardosia mt-2 max-w-2xl">Escolha suas receitas e criamos uma lista inteligente para si.</p>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm p-6 md:p-8 rounded-2xl shadow-md border border-black/5 mb-8">
-                    <h2 className="text-2xl font-semibold mb-1 text-verde-floresta">Passo 1: Escolha as Receitas</h2>
-                    <p className="text-cinza-ardosia mb-6">Selecionadas: <span className="font-bold text-terracota-500">{receitasSelecionadas.size}</span></p>
-
-                    {erro && <p className="text-red-500 mb-4">{erro}</p>}
-
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                        {receitasSelecionaveis.length > 0 ? (
-                            receitasSelecionaveis.map(receita => {
-                                const selecionada = receitasSelecionadas.has(receita.id_receita);
-                                return (
-                                    <div
-                                        key={receita.id_receita}
-                                        onClick={() => handleSelecaoReceita(receita.id_receita)}
-                                        className={`relative rounded-xl cursor-pointer transition-all duration-300 overflow-hidden group ${selecionada ? 'ring-4 ring-terracota-500' : 'ring-2 ring-transparent hover:ring-terracota-500/50'}`}
-                                    >
-                                        {selecionada && <IconeCheck />}
-                                        {receita.url_imagem ? (
-                                            <img src={receita.url_imagem} alt={receita.titulo} className="h-32 w-full object-cover transition-transform duration-300 group-hover:scale-110" />
-                                        ) : (
-                                            <div className="h-32 w-full bg-zinc-200 flex items-center justify-center"><IconePratoPlaceholder /></div>
-                                        )}
-                                        <div className="absolute bottom-0 left-0 w-full h-2/3 bg-gradient-to-t from-black/80 to-transparent p-2 flex items-end">
-                                            <span className="text-white text-sm font-semibold">{receita.titulo}</span>
-                                        </div>
-                                    </div>
-                                );
-                            })
-                        ) : (
-                            <div className="text-cinza-ardosia p-4 col-span-full bg-zinc-100 rounded-lg text-center">
-                                Você precisa criar ou favoritar receitas para usar o planejador.
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                <div className="text-center mb-10">
-                    <button
-                        onClick={handleGerarLista}
-                        disabled={receitasSelecionadas.size === 0}
-                        className="flex items-center justify-center w-full md:w-auto mx-auto bg-terracota-500 text-white py-3 px-8 rounded-xl font-bold text-lg hover:bg-terracota-600 disabled:bg-cinza-ardosia disabled:cursor-not-allowed transition-all duration-300 transform hover:scale-105 focus:outline-none">
-                        <IconeCarrinho />
-                        Gerar Lista de Compras
-                    </button>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm p-6 md:p-8 rounded-2xl shadow-md border border-black/5">
-                    <div className="flex justify-between items-center mb-6">
-                        <h2 className="text-2xl md:text-3xl font-bold text-verde-floresta">Passo 2: Sua Lista</h2>
-                        <div className="flex items-center gap-2">
-                            <button onClick={() => setOrdenacaoAZ(!ordenacaoAZ)} title="Ordenar A-Z" className={`p-2 rounded-full transition-colors ${ordenacaoAZ ? 'bg-terracota-500 text-white' : 'text-cinza-ardosia hover:bg-zinc-200'}`}><IconeAZ /></button>
-                            <button onClick={() => handleFiltroClick('porReceita')} title="Agrupar por Receita" className={`p-2 rounded-full transition-colors ${filtroAtivo === 'porReceita' ? 'bg-terracota-500 text-white' : 'text-cinza-ardosia hover:bg-zinc-200'}`}><IconePratoFacaGarfo /></button>
-                            <button onClick={() => handleFiltroClick('porCategoria')} title="Agrupar por Categoria" className={`p-2 rounded-full transition-colors ${filtroAtivo === 'porCategoria' ? 'bg-terracota-500 text-white' : 'text-cinza-ardosia hover:bg-zinc-200'}`}><IconeEtiqueta /></button>
-                        </div>
-                    </div>
-
-                    {listaDeCompras.length > 0 ? (
-                        <>
-                            {filtroAtivo === 'porReceita' && (
-                                <div className="space-y-6">
-                                    {Object.entries(listaPorReceitaExibida).map(([nomeReceita, ingredientes]) => (
-                                        <div key={nomeReceita}>
-                                            <h3 className="text-lg font-semibold text-verde-floresta border-b-2 border-terracota-500/50 pb-2 mb-2">{nomeReceita}</h3>
-                                            <ul className="space-y-1">
-                                                {ingredientes.map((item, index) => <li key={index} className="ml-4 text-cinza-ardosia flex items-center"><span className="mr-2 text-terracota-500">•</span>{item.quantidade} {item.unidade_medida} de {item.nome}</li>)}
-                                            </ul>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {filtroAtivo === 'porCategoria' && (
-                                <div className="space-y-6">
-                                    {listaExibida.map(([categoria, itens]) => (
-                                        <div key={categoria}>
-                                            <h3 className="text-lg font-semibold text-verde-floresta border-b-2 border-terracota-500/50 pb-2 mb-2">{categoria}</h3>
-                                            <ul className="space-y-1">{itens.map(item => <ItemListaConsolidada key={`${item.nome}_${item.unidade_medida}`} item={item} />)}</ul>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-                            {filtroAtivo === 'consolidado' && (
-                                <ul className="space-y-1">{listaExibida.map(item => <ItemListaConsolidada key={`${item.nome}_${item.unidade_medida}`} item={item} />)}</ul>
-                            )}
-                        </>
-                    ) : (
-                        <div className="text-center py-10 px-6 border-2 border-dashed border-zinc-300 rounded-xl">
-                            <h3 className="text-lg font-medium text-verde-floresta">Sua lista está vazia</h3>
-                            <p className="mt-1 text-cinza-ardosia">Selecione as receitas e clique em "Gerar Lista" para começar.</p>
-                        </div>
-                    )}
-                </div>
-            </div>
+          {item.fontes && item.fontes.length > 1 && (
+            <button
+              type="button"
+              onClick={onToggleExpandir}
+              className="text-[11px] font-bold text-cinza-ardosia hover:text-verde-floresta p-1"
+              title="Ver em quais receitas é usado"
+            >
+              {item.fontes.length} receitas ▼
+            </button>
+          )}
         </div>
-    );
+      </div>
 
-    function ItemListaConsolidada({ item }) {
-        const chaveItem = `${item.nome}_${item.unidade_medida}`;
-        const estaMarcado = itensMarcados.has(chaveItem);
-        const estaExpandido = detalhesVisiveis === chaveItem;
-        return (
-            <li className="border-b border-zinc-200 last:border-b-0 py-2">
-                <div className="flex items-center">
-                    <input
-                        type="checkbox"
-                        id={chaveItem}
-                        onChange={() => handleMarcarItem(chaveItem)}
-                        checked={estaMarcado}
-                        className="h-5 w-5 rounded border-zinc-300 text-terracota-500 focus:ring-terracota-500 cursor-pointer flex-shrink-0"
-                    />
-                    <div onClick={() => toggleDetalhes(chaveItem)} className="ml-4 flex-grow flex justify-between items-center cursor-pointer">
-                        <span className={`font-medium transition-all ${estaMarcado ? 'line-through text-cinza-ardosia' : 'text-verde-floresta'}`}>{item.nome}</span>
-                        <div className="flex items-center">
-                            <span className={`font-bold mr-4 transition-all ${estaMarcado ? 'text-cinza-ardosia' : 'text-verde-floresta'}`}>{item.quantidade_total} {item.unidade_medida}</span>
-                            <IconeChevron estaAberto={estaExpandido} />
-                        </div>
-                    </div>
-                </div>
-                <div className={`transition-all duration-500 ease-in-out grid ${estaExpandido ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-                    <div className="overflow-hidden">
-                        <div className="pl-9 pt-4">
-                            <div className="pt-3 border-t border-zinc-200">
-                                <h4 className="text-sm font-semibold text-cinza-ardosia mb-2">Usado em:</h4>
-                                <div className="space-y-2">
-                                    {item.fontes.map((fonte, index) => (
-                                        <div key={index} className="flex items-center gap-3">
-                                            <AvatarReceita titulo={fonte.receita} />
-                                            <span className="text-verde-floresta flex-grow">{fonte.receita}:</span>
-                                            <span className="font-medium text-verde-floresta">{fonte.quantidade} {item.unidade_medida}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </li>
-        )
-    }
+      {expandido && item.fontes && (
+        <div className="mt-3 pt-2.5 border-t border-zinc-100 pl-8 space-y-1.5 animate-fade-in text-xs text-cinza-ardosia">
+          <p className="font-bold text-verde-floresta text-[11px]">Distribuição por receita:</p>
+          {item.fontes.map((f, i) => (
+            <div key={i} className="flex justify-between">
+              <span>• {f.receita}</span>
+              <span className="font-mono font-semibold">{f.quantidade} {item.unidade_medida}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </li>
+  );
 }

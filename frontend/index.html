@@ -1,14 +1,22 @@
 <!doctype html>
-<html lang="pt-BR"> <head>
+<html lang="pt-BR" class="h-full scroll-smooth">
+  <head>
     <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>CookFlow — Suas Receitas e Carrinho Inteligente de Compras</title>
+    <meta name="description" content="Descubra receitas deliciosas, crie suas próprias criações gastronômicas e gere listas de compras consolidadas inteligentes com um clique no CookFlow." />
     
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- Google Fonts: Plus Jakarta Sans & Outfit -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400&display=swap" rel="stylesheet">
     
-    <title>cookflow</title> <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
-    <link rel="png" href="/frontend/public/apple-touch-icon.png" type="image/png">
-    <meta name="msapplication-TileColor" content="#e15a31"> <meta name="theme-color" content="#fff7ed"> </head>
-  <body>
-    <div id="root"></div>
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23E15A31'><path d='M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z'/></svg>">
+    <meta name="msapplication-TileColor" content="#e15a31">
+    <meta name="theme-color" content="#fff7ed">
+  </head>
+  <body class="h-full bg-creme text-verde-floresta font-sans antialiased selection:bg-terracota-500 selection:text-white">
+    <div id="root" class="min-h-full flex flex-col"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

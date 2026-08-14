@@ -1,37 +1,36 @@
 // Arquivo: src/pages/CriarReceitaPage.jsx
-import { useState, useEffect, useRef } from 'react'; // Adicionado useRef e useEffect
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 import api from '../services/api';
-import { toast } from 'react-toastify'; // Adicionado para notificações
+import ImageUpload from '../components/ImageUpload';
+import { toast } from 'react-toastify';
+import { Helmet } from 'react-helmet-async';
 
-// Hook customizado para textareas auto-expansíveis (Seu código, mantido)
 function useAutoResizeTextarea(value) {
   const ref = useRef(null);
   useEffect(() => {
     const textarea = ref.current;
     if (textarea) {
       textarea.style.height = 'auto';
-      textarea.style.height = `${textarea.scrollHeight}px`;
+      textarea.style.height = `${Math.max(textarea.scrollHeight, 100)}px`;
     }
   }, [value]);
   return ref;
 }
 
-// Seu componente de ícone, mantido
-function IconeLixeira() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-      <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-    </svg>
-  );
-}
-
 const opcoesUnidades = [
-  { value: 'g', label: 'g' }, { value: 'kg', label: 'kg' },
-  { value: 'ml', label: 'ml' }, { value: 'l', label: 'l' },
-  { value: 'unidade(s)', label: 'unidade(s)' }, { value: 'xícara(s)', label: 'xícara(s)' },
-  { value: 'colher(es) de sopa', label: 'colher(es) de sopa' }, { value: 'colher(es) de chá', label: 'colher(es) de chá' },
+  { value: 'g', label: 'g (gramas)' },
+  { value: 'kg', label: 'kg (quilos)' },
+  { value: 'ml', label: 'ml (mililitros)' },
+  { value: 'l', label: 'L (litros)' },
+  { value: 'unidade(s)', label: 'unidade(s)' },
+  { value: 'xícara(s)', label: 'xícara(s)' },
+  { value: 'colher(es) de sopa', label: 'colher(es) de sopa' },
+  { value: 'colher(es) de chá', label: 'colher(es) de chá' },
+  { value: 'dente(s)', label: 'dente(s)' },
+  { value: 'pitada(s)', label: 'pitada(s)' },
+  { value: 'fatia(s)', label: 'fatia(s)' },
   { value: 'a gosto', label: 'a gosto' },
 ];
 
@@ -39,39 +38,57 @@ export default function CriarReceitaPage() {
   const [titulo, setTitulo] = useState('');
   const [descricao, setDescricao] = useState('');
   const [url_imagem, setUrlImagem] = useState('');
-  const [imagemPreview, setImagemPreview] = useState(null);
   const [id_categoria, setIdCategoria] = useState(1);
+  const [categorias, setCategorias] = useState([]);
   const [tempo_preparo_minutos, setTempoPreparo] = useState('');
   const [dificuldade, setDificuldade] = useState('Fácil');
   const [instrucoes, setInstrucoes] = useState('');
-  const [ingredientes, setIngredientes] = useState([{ nome: '', quantidade: '', unidade_medida: '' }]);
+  const [ingredientes, setIngredientes] = useState([
+    { nome: '', quantidade: '', unidade_medida: 'unidade(s)' },
+    { nome: '', quantidade: '', unidade_medida: 'g' }
+  ]);
   const [opcoesIngredientes, setOpcoesIngredientes] = useState([]);
+  const [salvando, setSalvando] = useState(false);
   const navigate = useNavigate();
-  
-  // Aplicando o hook de auto-resize que você criou
+
   const descricaoRef = useAutoResizeTextarea(descricao);
   const instrucoesRef = useAutoResizeTextarea(instrucoes);
 
   useEffect(() => {
-    async function carregarIngredientes() {
+    async function carregarDadosIniciais() {
       try {
-        const resposta = await api.get('/ingredientes');
-        const opcoesFormatadas = resposta.data.map(item => ({ value: item.nome, label: item.nome }));
-        setOpcoesIngredientes(opcoesFormatadas);
+        const [resIngredientes, resCategorias] = await Promise.allSettled([
+          api.get('/ingredientes'),
+          api.get('/categorias')
+        ]);
+
+        if (resIngredientes.status === 'fulfilled') {
+          const formatadas = resIngredientes.value.data.map(item => ({
+            value: item.nome,
+            label: item.nome
+          }));
+          setOpcoesIngredientes(formatadas);
+        }
+
+        if (resCategorias.status === 'fulfilled' && resCategorias.value.data.length > 0) {
+          setCategorias(resCategorias.value.data);
+          setIdCategoria(resCategorias.value.data[0].id_categoria);
+        } else {
+          setCategorias([
+            { id_categoria: 1, nome: 'Massas' },
+            { id_categoria: 2, nome: 'Sobremesas' },
+            { id_categoria: 3, nome: 'Carnes' },
+            { id_categoria: 4, nome: 'Lanches' },
+            { id_categoria: 5, nome: 'Vegetariano' },
+            { id_categoria: 6, nome: 'Bebidas' }
+          ]);
+        }
       } catch (err) {
-        console.error("Erro ao carregar lista de ingredientes:", err);
-        toast.error("Não foi possível carregar os ingredientes.");
+        console.error("Erro ao carregar dados do formulário:", err);
       }
     }
-    carregarIngredientes();
+    carregarDadosIniciais();
   }, []);
-
-  const handleImagemChange = (e) => {
-    const ficheiro = e.target.files[0];
-    if (ficheiro) {
-      setImagemPreview(URL.createObjectURL(ficheiro));
-    }
-  };
 
   const handleIngredienteChange = (index, nomeCampo, valor) => {
     const novosIngredientes = [...ingredientes];
@@ -80,10 +97,14 @@ export default function CriarReceitaPage() {
   };
 
   const adicionarIngrediente = () => {
-    setIngredientes([...ingredientes, { nome: '', quantidade: '', unidade_medida: '' }]);
+    setIngredientes([...ingredientes, { nome: '', quantidade: '', unidade_medida: 'unidade(s)' }]);
   };
 
   const removerIngrediente = (index) => {
+    if (ingredientes.length <= 1) {
+      toast.warning('A receita precisa ter ao menos um ingrediente.');
+      return;
+    }
     const novosIngredientes = [...ingredientes];
     novosIngredientes.splice(index, 1);
     setIngredientes(novosIngredientes);
@@ -92,175 +113,305 @@ export default function CriarReceitaPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validação da URL da imagem
+    if (!titulo.trim()) {
+      toast.warning('Informe o título da sua receita.');
+      return;
+    }
+
     if (!url_imagem.trim()) {
-        toast.error('Por favor, forneça a URL da imagem da receita.');
-        return;
+      toast.warning('Por favor, adicione uma foto para a sua receita.');
+      return;
     }
 
-    // Sua validação de unidade de medida, agora usando toast
-    for (const ing of ingredientes) {
-      if (ing.nome && ing.quantidade && !ing.unidade_medida) {
-        toast.error('Por favor, selecione a unidade de medida para todos os ingredientes.');
-        return;
-      }
+    const ingredientesValidos = ingredientes.filter(ing => ing.nome && ing.nome.trim() && ing.quantidade);
+
+    if (ingredientesValidos.length === 0) {
+      toast.warning("Adicione pelo menos um ingrediente com nome e quantidade.");
+      return;
     }
 
+    setSalvando(true);
     try {
       const dadosReceita = {
-        titulo, descricao, url_imagem, id_categoria: Number(id_categoria),
-        tempo_preparo_minutos: Number(tempo_preparo_minutos), dificuldade, instrucoes, 
-        // Filtra ingredientes vazios antes de enviar
-        ingredientes: ingredientes.filter(ing => ing.nome && ing.quantidade && ing.unidade_medida)
+        titulo: titulo.trim(),
+        descricao: descricao.trim(),
+        url_imagem: url_imagem.trim(),
+        id_categoria: Number(id_categoria),
+        tempo_preparo_minutos: Number(tempo_preparo_minutos) || 30,
+        dificuldade,
+        instrucoes: instrucoes.trim(),
+        ingredientes: ingredientesValidos
       };
 
-      if (dadosReceita.ingredientes.length === 0) {
-          toast.error("Adicione pelo menos um ingrediente completo.");
-          return;
-      }
-
-      await api.post('/receitas', dadosReceita);
+      const resposta = await api.post('/receitas', dadosReceita);
       toast.success("Receita criada com sucesso!");
-      navigate('/');
+      navigate(`/receita/${resposta.data.id_receita || ''}`);
     } catch (err) {
+      console.error('Erro ao salvar receita:', err);
       toast.error(err.response?.data?.mensagem || 'Ocorreu um erro ao criar a receita.');
+    } finally {
+      setSalvando(false);
     }
   };
 
   return (
-    <div className="bg-creme min-h-screen py-10">
-      <div className="max-w-3xl mx-auto bg-white p-8 rounded-2xl shadow-lg border border-gray-200">
-        <h1 className="text-4xl font-bold text-verde-floresta mb-8 border-b pb-4">Crie uma Nova Receita</h1>
-        <form onSubmit={handleSubmit} className="space-y-8">
+    <div className="max-w-4xl mx-auto py-6 selection:bg-terracota-500 selection:text-white">
+      <Helmet>
+        <title>CookFlow — Criar Nova Receita</title>
+      </Helmet>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-            {/* Coluna da Imagem */}
-            <div>
-              <label className="block text-lg font-medium text-cinza-ardosia mb-2">Sua Receita</label>
-              <div className="w-full h-64 rounded-lg border-2 border-dashed border-gray-300 flex items-center justify-center bg-gray-50 relative">
-                {imagemPreview ? (
-                  <img src={imagemPreview} alt="Pré-visualização da receita" className="w-full h-full object-cover rounded-lg" />
-                ) : (
-                  <div className="text-center text-cinza-ardosia">
-                    <svg className="mx-auto h-12 w-12" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 4v.01M28 8l4 4m0 0l4 4m-4-4v12m-8-4l-4-4m0 0l-4 4m4-4v12" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
-                    <p className="mt-2">Escolha uma imagem</p>
-                  </div>
-                )}
+      <div className="glass-panel p-6 sm:p-10 rounded-3xl shadow-card border border-white/80 space-y-8">
+        
+        {/* Cabeçalho */}
+        <div className="border-b border-zinc-200 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-3xl sm:text-4xl font-bold text-verde-floresta font-heading">
+              Criar Nova Receita
+            </h1>
+            <p className="text-sm text-cinza-ardosia mt-1">
+              Compartilhe suas melhores criações culinárias com o mundo.
+            </p>
+          </div>
+          <span className="bg-terracota-50 text-terracota-600 font-bold text-xs px-3.5 py-1.5 rounded-full border border-terracota-200 self-start sm:self-auto">
+            Passo a Passo
+          </span>
+        </div>
+
+        <form onSubmit={handleSubmit} className="space-y-8">
+          
+          {/* Seção 1: Foto e Título */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="lg:col-span-6">
+              <ImageUpload
+                valorAtual={url_imagem}
+                aoMudarImagem={setUrlImagem}
+                label="Foto Principal do Prato"
+              />
+            </div>
+
+            <div className="lg:col-span-6 space-y-5">
+              <div>
+                <label className="block text-sm font-semibold text-verde-floresta mb-2">
+                  Título da Receita <span className="text-terracota-500">*</span>
+                </label>
                 <input
-                  type="file"
-                  accept="image/jpeg, image/png"
-                  onChange={handleImagemChange}
-                  className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                  type="text"
+                  placeholder="Ex: Lasanha Artesanal de Quatro Queijos"
+                  value={titulo}
+                  onChange={e => setTitulo(e.target.value)}
+                  required
+                  className="w-full px-4 py-3 bg-white border border-zinc-300 rounded-xl text-verde-floresta text-sm font-medium focus:outline-none focus:ring-2 focus:ring-terracota-500/50 shadow-sm"
                 />
               </div>
-              <p className="text-xs text-cinza-ardosia mt-2">Formatos aceites: JPG, PNG.</p>
+
+              <div>
+                <label className="block text-sm font-semibold text-verde-floresta mb-2">
+                  Breve Descrição ou História
+                </label>
+                <textarea
+                  ref={descricaoRef}
+                  placeholder="Conte um pouco sobre o sabor, a origem ou o segredo dessa delícia..."
+                  value={descricao}
+                  onChange={e => setDescricao(e.target.value)}
+                  className="w-full p-4 bg-white border border-zinc-300 rounded-xl text-verde-floresta text-sm focus:outline-none focus:ring-2 focus:ring-terracota-500/50 shadow-sm resize-none"
+                  rows="3"
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Seção 2: Informações Técnicas */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 p-5 bg-creme-100/70 rounded-2xl border border-zinc-200/70">
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-cinza-ardosia mb-2">
+                Tempo de Preparo (minutos) <span className="text-terracota-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="1"
+                placeholder="Ex: 45"
+                value={tempo_preparo_minutos}
+                onChange={e => setTempoPreparo(e.target.value)}
+                required
+                className="w-full p-3 bg-white border border-zinc-300 rounded-xl text-verde-floresta font-bold text-sm focus:ring-2 focus:ring-terracota-500/50 shadow-sm"
+              />
             </div>
 
-            {/* Coluna do Título e Descrição */}
-            <div className="space-y-6">
-              <div>
-                <label className="block text-lg font-medium text-cinza-ardosia mb-2">Título da Receita</label>
-                <input type="text" placeholder="Ex: Bolo de Chocolate..." value={titulo} onChange={e => setTitulo(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-md" />
-              </div>
-              <div>
-                <label className="block text-lg font-medium text-cinza-ardosia mb-2">URL da Imagem</label>
-                <input type="url" placeholder="https://exemplo.com/imagem.jpg" value={url_imagem} onChange={e => setUrlImagem(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-md" />
-                <p className="text-xs text-cinza-ardosia mt-1">MVP: Por favor, cole a URL da imagem aqui por enquanto.</p>
-              </div>
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-cinza-ardosia mb-2">
+                Dificuldade
+              </label>
+              <select
+                value={dificuldade}
+                onChange={e => setDificuldade(e.target.value)}
+                className="w-full p-3 bg-white border border-zinc-300 rounded-xl text-verde-floresta font-bold text-sm focus:ring-2 focus:ring-terracota-500/50 shadow-sm cursor-pointer"
+              >
+                <option value="Fácil">🟢 Fácil</option>
+                <option value="Médio">🟡 Médio</option>
+                <option value="Difícil">🔴 Difícil</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold uppercase tracking-wider text-cinza-ardosia mb-2">
+                Categoria
+              </label>
+              <select
+                value={id_categoria}
+                onChange={e => setIdCategoria(e.target.value)}
+                className="w-full p-3 bg-white border border-zinc-300 rounded-xl text-verde-floresta font-bold text-sm focus:ring-2 focus:ring-terracota-500/50 shadow-sm cursor-pointer"
+              >
+                {categorias.map(cat => (
+                  <option key={cat.id_categoria} value={cat.id_categoria}>
+                    {cat.nome}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          <div>
-            <label className="block text-lg font-medium text-cinza-ardosia mb-2">Descrição</label>
-            <textarea
-                ref={descricaoRef} // Aplicando a ref do hook
-                placeholder="Uma breve descrição sobre a sua receita..."
-                value={descricao}
-                onChange={e => setDescricao(e.target.value)}
-                className="w-full p-3 border border-gray-300 rounded-md resize-none overflow-hidden" // Adicionadas classes para o auto-resize
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Tempo de Preparo (min)</label>
-              <input type="number" value={tempo_preparo_minutos} onChange={e => setTempoPreparo(e.target.value)} required className="w-full p-3 border border-gray-300 rounded-md shadow-sm" />
+          {/* Seção 3: Lista de Ingredientes Dinâmica */}
+          <div className="space-y-4 pt-2">
+            <div className="flex justify-between items-center border-b border-zinc-200 pb-3">
+              <div>
+                <h2 className="text-xl font-bold text-verde-floresta font-heading flex items-center gap-2">
+                  <span>🥕</span> Ingredientes da Receita
+                </h2>
+                <p className="text-xs text-cinza-ardosia">
+                  Esses itens serão usados no Carrinho Inteligente de compras.
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={adicionarIngrediente}
+                className="btn-secondary py-1.5 px-4 text-xs font-bold flex items-center gap-1.5"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                <span>+ Ingrediente</span>
+              </button>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Dificuldade</label>
-              <select value={dificuldade} onChange={e => setDificuldade(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md shadow-sm bg-white">
-                <option>Fácil</option> <option>Médio</option> <option>Difícil</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Categoria</label>
-              <select value={id_categoria} onChange={e => setIdCategoria(e.target.value)} className="w-full p-3 border border-gray-300 rounded-md shadow-sm bg-white">
-                <option value="1">Sobremesa</option> <option value="2">Prato Principal</option>
-                <option value="3">Lanche</option> <option value="4">Vegano</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <h2 className="text-2xl font-semibold mb-4 text-gray-800">Ingredientes</h2>
-            <div className="space-y-4">
+
+            <div className="space-y-3">
               {ingredientes.map((ing, index) => (
-                <div key={index} className="grid grid-cols-12 gap-2 items-center">
-                  <div className="col-span-12 md:col-span-6">
-    <Select
-        options={opcoesIngredientes}
-        isClearable
-        isSearchable
-        placeholder="Selecione ou digite..."
-        onChange={opcao => handleIngredienteChange(index, 'nome', opcao ? opcao.value : '')}
-        value={opcoesIngredientes.find(o => o.value === ing.nome)}
-        // Estilos customizados para o componente Select
-        styles={{
-            control: (baseStyles, state) => ({
-                ...baseStyles,
-                padding: '0.3rem',
-                borderColor: state.isFocused ? '#2F4F4F' // Verde Floresta (ou 'black' se preferir)
-                                             : '#D1D5DB', // Cor da borda padrão (cinza)
-                // Remove a sombra azul padrão e adiciona uma sombra sutil com a nossa cor
-                boxShadow: state.isFocused ? '0 0 0 1px #2F4F4F' : 'none',
-                '&:hover': {
-                    borderColor: state.isFocused ? '#2F4F4F' : '#A1A1AA',
-                },
-            }),
-        }}
-    />
-</div>
-                  <div className="col-span-4 md:col-span-2">
-                    <input type="number" name="quantidade" placeholder="Qtd" value={ing.quantidade} onChange={e => handleIngredienteChange(index, 'quantidade', e.target.value)} required className="w-full p-3 border border-gray-300 rounded-md" />
+                <div
+                  key={index}
+                  className="grid grid-cols-12 gap-3 items-center p-3 bg-white/80 rounded-2xl border border-zinc-200/80 shadow-sm"
+                >
+                  <div className="col-span-12 sm:col-span-6">
+                    <CreatableSelect
+                      options={opcoesIngredientes}
+                      isClearable
+                      isSearchable
+                      placeholder="Nome do ingrediente..."
+                      onChange={opcao => handleIngredienteChange(index, 'nome', opcao ? opcao.value : '')}
+                      onCreateOption={novoValor => {
+                        const novaOpcao = { value: novoValor, label: novoValor };
+                        setOpcoesIngredientes(prev => [...prev, novaOpcao]);
+                        handleIngredienteChange(index, 'nome', novoValor);
+                      }}
+                      value={ing.nome ? { value: ing.nome, label: ing.nome } : null}
+                      styles={{
+                        control: (base, state) => ({
+                          ...base,
+                          borderRadius: '0.75rem',
+                          padding: '0.2rem',
+                          borderColor: state.isFocused ? '#E15A31' : '#E4E4E7',
+                          boxShadow: state.isFocused ? '0 0 0 1px #E15A31' : 'none',
+                          '&:hover': { borderColor: '#E15A31' },
+                        }),
+                      }}
+                    />
                   </div>
-                  <div className="col-span-6 md:col-span-3">
-                    <select name="unidade_medida" value={ing.unidade_medida} onChange={e => handleIngredienteChange(index, 'unidade_medida', e.target.value)} required className="w-full p-3 border border-gray-300 rounded-md bg-white">
-                      <option value="" disabled>Unidade</option>
-                      {opcoesUnidades.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
+
+                  <div className="col-span-5 sm:col-span-2">
+                    <input
+                      type="number"
+                      step="any"
+                      min="0.01"
+                      placeholder="Qtd"
+                      value={ing.quantidade}
+                      onChange={e => handleIngredienteChange(index, 'quantidade', e.target.value)}
+                      required
+                      className="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-verde-floresta text-sm font-semibold text-center focus:ring-2 focus:ring-terracota-500/50"
+                    />
+                  </div>
+
+                  <div className="col-span-5 sm:col-span-3">
+                    <select
+                      value={ing.unidade_medida}
+                      onChange={e => handleIngredienteChange(index, 'unidade_medida', e.target.value)}
+                      required
+                      className="w-full p-2.5 bg-white border border-zinc-300 rounded-xl text-verde-floresta text-xs font-semibold focus:ring-2 focus:ring-terracota-500/50"
+                    >
+                      {opcoesUnidades.map(opt => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                  <div className="col-span-2 md:col-span-1 flex justify-end">
-                    {ingredientes.length > 1 && (<button type="button" onClick={() => removerIngrediente(index)} className="text-red-500 hover:text-red-700 p-2 rounded-full hover:bg-red-100 transition-colors"><IconeLixeira /></button>)}
+
+                  <div className="col-span-2 sm:col-span-1 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={() => removerIngrediente(index)}
+                      className="p-2 text-zinc-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-colors"
+                      title="Remover ingrediente"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
                   </div>
                 </div>
               ))}
             </div>
-            <button type="button" onClick={adicionarIngrediente} className="mt-4 bg-terracota-500 text-white py-2 px-4 rounded-md hover:bg-terracota-600 transition-colors font-medium">
-                + Adicionar Ingrediente
-            </button>
           </div>
-          <div>
-            <label className="block text-lg font-medium text-gray-700 mb-2">Modo de Preparo</label>
+
+          {/* Seção 4: Modo de Preparo */}
+          <div className="space-y-3 pt-2">
+            <label className="block text-xl font-bold text-verde-floresta font-heading flex items-center gap-2">
+              <span>👩‍🍳</span> Modo de Preparo (Instruções)
+            </label>
+            <p className="text-xs text-cinza-ardosia">
+              Dica: Escreva um passo por linha para criar uma lista numerada automática e organizada.
+            </p>
             <textarea
-              ref={instrucoesRef} // Aplicando a ref do hook
-              placeholder="Descreva o passo a passo da sua receita..."
+              ref={instrucoesRef}
+              placeholder={`1. Em uma tigela grande, misture a farinha e os ovos...\n2. Pré-aqueça o forno a 180°C...\n3. Asse por 35 minutos até dourar.`}
               value={instrucoes}
               onChange={e => setInstrucoes(e.target.value)}
               required
-              className="w-full p-3 border border-gray-300 rounded-md shadow-sm h-48 focus:ring-green-500 focus:border-green-500 resize-none overflow-hidden" // Adicionadas classes para o auto-resize
+              className="w-full p-4 bg-white border border-zinc-300 rounded-2xl text-verde-floresta text-sm focus:outline-none focus:ring-2 focus:ring-terracota-500/50 shadow-sm resize-none"
+              rows="5"
             />
           </div>
-          <button type="submit" className="w-full bg-terracota-500 text-white py-4 rounded-lg font-bold text-xl hover:bg-terracota-600 shadow-lg">
-            Publicar Receita
-          </button>
+
+          {/* Botão de Envio */}
+          <div className="pt-4">
+            <button
+              type="submit"
+              disabled={salvando}
+              className="btn-primary w-full py-4 text-lg font-bold flex items-center justify-center gap-2 shadow-lg shadow-terracota-500/30"
+            >
+              {salvando ? (
+                <>
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  <span>Publicando Receita...</span>
+                </>
+              ) : (
+                <>
+                  <span>Publicar Receita no CookFlow</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
         </form>
       </div>
     </div>

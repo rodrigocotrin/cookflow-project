@@ -1,12 +1,12 @@
 // Arquivo: src/context/AuthContexto.jsx
-import { createContext, useState, useEffect } from 'react';
-import api from '../services/api'; // Verifique se o caminho está correto
+import { createContext, useState, useEffect, useContext } from 'react';
+import api from '../services/api';
 
 export const AuthContexto = createContext({});
 
 export function AuthProvider({ children }) {
   const [utilizador, setUtilizador] = useState(null);
-  const [loading, setLoading] = useState(true); // NOVO ESTADO
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const tokenGuardado = localStorage.getItem('token');
@@ -18,12 +18,12 @@ export function AuthProvider({ children }) {
         api.defaults.headers.Authorization = `Bearer ${tokenGuardado}`;
         setUtilizador(dadosUtilizador);
       } catch (error) {
-        console.error("Dados do utilizador corrompidos no localStorage, limpando...", error);
+        console.error("Dados do usuário corrompidos no localStorage, limpando...", error);
         localStorage.removeItem('token');
         localStorage.removeItem('utilizador');
       }
     }
-    setLoading(false); // ATUALIZAÇÃO: Define o loading como falso no final
+    setLoading(false);
   }, []);
 
   async function login(email, senha) {
@@ -35,10 +35,11 @@ export function AuthProvider({ children }) {
       localStorage.setItem('utilizador', JSON.stringify(usuario));
       api.defaults.headers.Authorization = `Bearer ${token}`;
       setUtilizador(usuario);
-      return true;
+      return { sucesso: true };
     } catch (erro) {
       console.error("Erro no login:", erro);
-      return false;
+      const mensagem = erro.response?.data?.mensagem || 'E-mail ou senha inválidos. Tente novamente.';
+      return { sucesso: false, mensagem };
     }
   }
 
@@ -46,12 +47,36 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('token');
     localStorage.removeItem('utilizador');
     setUtilizador(null);
-    api.defaults.headers.Authorization = null;
+    delete api.defaults.headers.Authorization;
+  }
+
+  function atualizarUtilizador(novosDados) {
+    setUtilizador(prev => {
+      const atualizado = { ...prev, ...novosDados };
+      localStorage.setItem('utilizador', JSON.stringify(atualizado));
+      return atualizado;
+    });
   }
 
   return (
-    <AuthContexto.Provider value={{ utilizador, assinado: !!utilizador, login, logout, loading }}> {/* ATUALIZAÇÃO: Adiciona 'loading' */}
+    <AuthContexto.Provider value={{ 
+      utilizador,
+      usuario: utilizador,
+      assinado: !!utilizador, 
+      login, 
+      logout, 
+      loading,
+      atualizarUtilizador 
+    }}>
       {children}
     </AuthContexto.Provider>
   );
+}
+
+export function useAuth() {
+  const context = useContext(AuthContexto);
+  if (!context) {
+    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+  }
+  return context;
 }

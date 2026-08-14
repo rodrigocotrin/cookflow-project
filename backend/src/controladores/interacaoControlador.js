@@ -1,13 +1,18 @@
 // Arquivo: src/controladores/interacaoControlador.js
 const db = require('../config/bd');
 
+/**
+ * Avaliar uma receita (1 a 5 estrelas) com suporte a UPSERT.
+ * Se o usuário já avaliou, atualiza a nota existente.
+ */
 const avaliarReceita = async (requisicao, resposta) => {
     const { id: id_usuario } = requisicao.usuario;
     const { id: id_receita } = requisicao.params;
     const { nota } = requisicao.body;
 
-    if (typeof nota !== 'number' || nota < 1 || nota > 5) {
-        return resposta.status(400).json({ mensagem: 'A nota é obrigatória e deve ser um número entre 1 e 5 (ex: 3.5).' });
+    const notaNumerica = parseFloat(nota);
+    if (isNaN(notaNumerica) || notaNumerica < 1 || notaNumerica > 5) {
+        return resposta.status(400).json({ mensagem: 'A nota deve ser um número entre 1 e 5.' });
     }
 
     try {
@@ -16,17 +21,32 @@ const avaliarReceita = async (requisicao, resposta) => {
             return resposta.status(404).json({ mensagem: 'Receita não encontrada.' });
         }
 
-        const avaliacaoExistente = await db.query('SELECT * FROM avaliacoes WHERE id_usuario = $1 AND id_receita = $2', [id_usuario, id_receita]);
-        if (avaliacaoExistente.rowCount > 0) {
-            return resposta.status(409).json({ mensagem: 'Você já avaliou esta receita.' });
-        }
+        // UPSERT na tabela avaliacoes
+        const avaliacaoQuery = `
+            INSERT INTO avaliacoes (id_usuario, id_receita, nota) 
+            VALUES ($1, $2, $3)
+            ON CONFLICT (id_usuario, id_receita) 
+            DO UPDATE SET nota = EXCLUDED.nota, data_criacao = CURRENT_TIMESTAMP
+            RETURNING *;
+        `;
+        const resultadoAvaliacao = await db.query(avaliacaoQuery, [id_usuario, id_receita, notaNumerica]);
 
-        const novaAvaliacao = await db.query(
-            'INSERT INTO avaliacoes (id_usuario, id_receita, nota) VALUES ($1, $2, $3) RETURNING *',
-            [id_usuario, id_receita, nota]
-        );
+        // Recalcula a média e contagem atualizadas
+        const statsQuery = `
+            SELECT 
+                COALESCE(ROUND(AVG(nota), 1), 0) AS media_avaliacoes, 
+                COUNT(id_avaliacao) AS total_avaliacoes 
+            FROM avaliacoes 
+            WHERE id_receita = $1;
+        `;
+        const stats = await db.query(statsQuery, [id_receita]);
 
-        return resposta.status(201).json(novaAvaliacao.rows[0]);
+        return resposta.status(200).json({
+            mensagem: 'Avaliação registrada com sucesso!',
+            avaliacao: resultadoAvaliacao.rows[0],
+            media_avaliacoes: parseFloat(stats.rows[0].media_avaliacoes).toFixed(1),
+            total_avaliacoes: parseInt(stats.rows[0].total_avaliacoes, 10),
+        });
 
     } catch (erro) {
         console.error('Erro ao avaliar receita:', erro);
@@ -34,51 +54,81 @@ const avaliarReceita = async (requisicao, resposta) => {
     }
 };
 
+/**
+ * Adicionar comentário com nota opcional em transação única.
+ */
 const adicionarComentario = async (requisicao, resposta) => {
     const { id: id_usuario } = requisicao.usuario;
     const { id: id_receita } = requisicao.params;
-    const { conteudo } = requisicao.body;
+    const { conteudo, nota } = requisicao.body;
 
     if (!conteudo || conteudo.trim() === '') {
         return resposta.status(400).json({ mensagem: 'O conteúdo do comentário não pode estar vazio.' });
     }
 
+    const client = await db.pool.connect();
     try {
-        const receita = await db.query('SELECT id_receita FROM receitas WHERE id_receita = $1', [id_receita]);
+        await client.query('BEGIN');
+
+        const receita = await client.query('SELECT id_receita FROM receitas WHERE id_receita = $1', [id_receita]);
         if (receita.rowCount === 0) {
+            await client.query('ROLLBACK');
             return resposta.status(404).json({ mensagem: 'Receita não encontrada.' });
         }
 
-        const comentarioExistente = await db.query(
-            'SELECT * FROM comentarios WHERE id_usuario = $1 AND id_receita = $2 AND conteudo = $3',
-            [id_usuario, id_receita, conteudo]
-        );
-
-        if (comentarioExistente.rowCount > 0) {
-            return resposta.status(409).json({ mensagem: 'Você já postou este comentário nesta receita.' });
+        // Se uma nota válida foi fornecida, faz UPSERT na avaliação
+        if (nota !== undefined && nota !== null && nota > 0) {
+            const notaNumerica = parseFloat(nota);
+            if (notaNumerica >= 1 && notaNumerica <= 5) {
+                await client.query(
+                    `INSERT INTO avaliacoes (id_usuario, id_receita, nota) 
+                     VALUES ($1, $2, $3)
+                     ON CONFLICT (id_usuario, id_receita) 
+                     DO UPDATE SET nota = EXCLUDED.nota, data_criacao = CURRENT_TIMESTAMP`,
+                    [id_usuario, id_receita, notaNumerica]
+                );
+            }
         }
 
-        const novoComentario = await db.query(
+        // Insere o novo comentário
+        const novoComentario = await client.query(
             'INSERT INTO comentarios (id_usuario, id_receita, conteudo) VALUES ($1, $2, $3) RETURNING *',
-            [id_usuario, id_receita, conteudo]
+            [id_usuario, id_receita, conteudo.trim()]
         );
 
-        return resposta.status(201).json(novoComentario.rows[0]);
+        // Busca dados atualizados da receita para sincronização instantânea
+        const stats = await client.query(
+            `SELECT COALESCE(ROUND(AVG(nota), 1), 0) AS media_avaliacoes, COUNT(id_avaliacao) AS total_avaliacoes 
+             FROM avaliacoes WHERE id_receita = $1`,
+            [id_receita]
+        );
+
+        await client.query('COMMIT');
+
+        return resposta.status(201).json({
+            mensagem: 'Comentário publicado com sucesso!',
+            comentario: novoComentario.rows[0],
+            media_avaliacoes: parseFloat(stats.rows[0].media_avaliacoes).toFixed(1),
+            total_avaliacoes: parseInt(stats.rows[0].total_avaliacoes, 10),
+        });
 
     } catch (erro) {
+        await client.query('ROLLBACK');
         console.error('Erro ao adicionar comentário:', erro);
         return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    } finally {
+        client.release();
     }
 };
 
+/**
+ * Listar todos os comentários de uma receita junto com a nota de quem comentou.
+ */
 const listarComentarios = async (req, res) => {
-    // CORREÇÃO AQUI: Mudamos de 'idReceita' para 'id' para corresponder à rota.
     const { id } = req.params; 
 
-    console.log(`Buscando comentários para a receita com ID: ${id}`); // A depuração agora mostrará o ID correto
-
     if (!id) {
-        return res.status(400).json({ mensagem: 'O ID da receita não foi fornecido no URL.' });
+        return res.status(400).json({ mensagem: 'O ID da receita não foi fornecido.' });
     }
 
     try {
@@ -93,19 +143,39 @@ const listarComentarios = async (req, res) => {
             WHERE c.id_receita = $1
             ORDER BY c.data_criacao DESC;
         `;
-        // Usamos a constante 'id' que agora tem o valor correto.
         const { rows } = await db.query(query, [id]); 
-        
-        console.log(`Encontrados ${rows.length} comentários no banco de dados.`);
-
-        res.json(rows);
+        res.status(200).json(rows);
     } catch (error) {
-        console.error('Erro detalhado ao listar comentários:', error);
+        console.error('Erro ao listar comentários:', error);
         res.status(500).json({ mensagem: 'Erro interno do servidor ao buscar comentários.' });
     }
 };
 
-// --- NOVA FUNÇÃO PARA EDITAR UM COMENTÁRIO ---
+/**
+ * Obter a avaliação e comentários do usuário logado nesta receita específica.
+ */
+const obterMinhaAvaliacao = async (requisicao, resposta) => {
+    const { id: id_usuario } = requisicao.usuario;
+    const { id: id_receita } = requisicao.params;
+
+    try {
+        const resultado = await db.query(
+            'SELECT nota FROM avaliacoes WHERE id_usuario = $1 AND id_receita = $2',
+            [id_usuario, id_receita]
+        );
+
+        return resposta.status(200).json({
+            nota: resultado.rows.length > 0 ? parseFloat(resultado.rows[0].nota) : 0
+        });
+    } catch (erro) {
+        console.error('Erro ao buscar minha avaliação:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
+/**
+ * Editar comentário existente.
+ */
 const editarComentario = async (requisicao, resposta) => {
     const { id: id_usuario } = requisicao.usuario;
     const { id_comentario } = requisicao.params;
@@ -118,11 +188,11 @@ const editarComentario = async (requisicao, resposta) => {
     try {
       const resultado = await db.query(
         'UPDATE comentarios SET conteudo = $1 WHERE id_comentario = $2 AND id_usuario = $3 RETURNING *',
-        [conteudo, id_comentario, id_usuario]
+        [conteudo.trim(), id_comentario, id_usuario]
       );
 
       if (resultado.rowCount === 0) {
-        return resposta.status(404).json({ mensagem: 'Comentário não encontrado ou não pertence ao utilizador.' });
+        return resposta.status(404).json({ mensagem: 'Comentário não encontrado ou não pertence ao usuário.' });
       }
 
       return resposta.status(200).json(resultado.rows[0]);
@@ -132,9 +202,35 @@ const editarComentario = async (requisicao, resposta) => {
     }
 };      
 
+/**
+ * Deletar comentário.
+ */
+const deletarComentario = async (requisicao, resposta) => {
+    const { id: id_usuario } = requisicao.usuario;
+    const { id_comentario } = requisicao.params;
+
+    try {
+        const resultado = await db.query(
+            'DELETE FROM comentarios WHERE id_comentario = $1 AND id_usuario = $2 RETURNING *',
+            [id_comentario, id_usuario]
+        );
+
+        if (resultado.rowCount === 0) {
+            return resposta.status(404).json({ mensagem: 'Comentário não encontrado ou você não tem permissão para deletá-lo.' });
+        }
+
+        return resposta.status(200).json({ mensagem: 'Comentário deletado com sucesso!' });
+    } catch (erro) {
+        console.error('Erro ao deletar comentário:', erro);
+        return resposta.status(500).json({ mensagem: 'Erro interno do servidor.' });
+    }
+};
+
 module.exports = {
     avaliarReceita,
     adicionarComentario,
-    listarComentarios, 
-    editarComentario, 
+    listarComentarios,
+    obterMinhaAvaliacao,
+    editarComentario,
+    deletarComentario,
 };

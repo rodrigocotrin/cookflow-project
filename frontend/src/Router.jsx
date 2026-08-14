@@ -5,6 +5,7 @@ import MainLayout from './layouts/MainLayout';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import EsqueciSenhaPage from './pages/EsqueciSenhaPage';
 import ReceitaDetalhePage from './pages/ReceitaDetalhePage';
 import CriarReceitaPage from './pages/CriarReceitaPage';
 import PerfilPage from './pages/PerfilPage';
@@ -33,14 +34,22 @@ const router = createBrowserRouter([
       },
     ],
   },
-  // --- ROTAS DE TELA CHEIA (SEM LAYOUT PRINCIPAL) ---
+  // --- ROTAS DE AUTENTICAÇÃO TELA CHEIA ---
   {
-    path: 'login', // Rota de Login agora fora do MainLayout
+    path: 'login',
     element: <LoginPage />,
   },
   {
-    path: 'cadastro', // Rota de Cadastro também fora para consistência
+    path: 'cadastro',
     element: <RegisterPage />,
+  },
+  {
+    path: 'recuperar-senha',
+    element: <EsqueciSenhaPage />,
+  },
+  {
+    path: 'redefinir-senha',
+    element: <EsqueciSenhaPage />,
   },
 ]);
 

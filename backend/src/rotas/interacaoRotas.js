@@ -12,10 +12,10 @@ rotas.get('/receitas/:id/comentarios', interacaoControlador.listarComentarios);
 rotas.use(verificarLogin);
 
 // --- ROTAS PROTEGIDAS ---
+rotas.get('/receitas/:id/minha-avaliacao', interacaoControlador.obterMinhaAvaliacao);
 rotas.post('/receitas/:id/avaliar', interacaoControlador.avaliarReceita);
 rotas.post('/receitas/:id/comentar', interacaoControlador.adicionarComentario);
-
-// NOVA ROTA PARA EDITAR UM COMENTÁRIO ESPECÍFICO
 rotas.put('/comentarios/:id_comentario', interacaoControlador.editarComentario);
+rotas.delete('/comentarios/:id_comentario', interacaoControlador.deletarComentario);
 
 module.exports = rotas;

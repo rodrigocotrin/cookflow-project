@@ -4,10 +4,10 @@ const usuarioControlador = require('../controladores/usuarioControlador');
 
 const rotas = express.Router();
 
-// Define a rota para o cadastro de usuário.
-// Usamos o método POST, pois estamos criando um novo recurso.
-// O endereço será '/usuarios'
+// Rotas de Autenticação e Conta
 rotas.post('/usuarios', usuarioControlador.cadastrarUsuario);
 rotas.post('/login', usuarioControlador.loginUsuario);
+rotas.post('/recuperar-senha', usuarioControlador.solicitarRecuperacaoSenha);
+rotas.post('/redefinir-senha', usuarioControlador.redefinirSenha);
 
 module.exports = rotas;
