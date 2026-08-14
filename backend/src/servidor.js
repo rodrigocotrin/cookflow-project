@@ -14,46 +14,36 @@ const uploadRotas = require('./rotas/uploadRotas');
 
 const app = express();
 
-// --- Configuração de CORS Definitiva e Robusta ---
-const allowedOrigins = [
-    'https://cookflow.rodrigocotrin.com',  // Domínio de produção personalizado
-    'http://localhost:5173',
-    'http://localhost:4173',
-    'http://localhost:3000',
-    'http://127.0.0.1:5173',
-    'http://127.0.0.1:4173',
-    process.env.FRONTEND_URL,
-    process.env.FRONTEND_URL_LOCAL
-].filter(Boolean);
-
+// --- Configuração de CORS Universal e Pré-flight Completo ---
 const corsOptions = {
     origin: (origin, callback) => {
-        // Aceita domínios de preview da Vercel e subdomínios do rodrigocotrin.com
-        const vercelPattern = /^https:\/\/cookflow(-[a-z0-9-]+)?\.vercel\.app$/;
-        const vercelProjectPattern = /^https:\/\/cookflow-project(-[a-z0-9-]+)?\.vercel\.app$/;
-        const customDomainPattern = /^https:\/\/([a-z0-9-]+\.)?rodrigocotrin\.com$/;
-
-        if (
-            !origin || 
-            allowedOrigins.includes(origin) || 
-            vercelPattern.test(origin) || 
-            vercelProjectPattern.test(origin) ||
-            customDomainPattern.test(origin)
-        ) {
-            callback(null, true);
-        } else {
-            callback(null, true); // Fallback permissivo para evitar bloqueios em testes
-        }
+        // Permite qualquer origem da aplicação, subdomínios, Vercel e chamadas de API
+        callback(null, true);
     },
     credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
     optionsSuccessStatus: 200
 };
 
 // --- Middlewares Globais ---
 app.use(cors(corsOptions));
 app.use(express.json());
+
+// Garante cabeçalhos CORS em todas as respostas, inclusive em erros
+app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+        res.setHeader('Access-Control-Allow-Origin', origin);
+        res.setHeader('Access-Control-Allow-Credentials', 'true');
+        res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,DELETE,OPTIONS,PATCH');
+        res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin');
+    }
+    if (req.method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    next();
+});
 
 // --- Servir Arquivos Estáticos de Uploads ---
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -77,6 +67,15 @@ app.use('/api', perfilRotas);
 app.use('/api', interacaoRotas);
 app.use('/api', uploadRotas);
 app.use('/api/lista-de-compras', listaComprasRotas);
+
+// Middleware Global de Tratamento de Erros
+app.use((err, req, res, next) => {
+    console.error('Erro na requisição:', err);
+    res.status(err.status || 500).json({
+        mensagem: err.message || 'Erro interno no servidor.',
+        erro: process.env.NODE_ENV === 'production' ? undefined : err.stack
+    });
+});
 
 const PORT = process.env.PORT || 3001;
 
